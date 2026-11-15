@@ -781,10 +781,10 @@
         </label>
         <label class="consent">
           <input id="suPrivacyConsent" type="checkbox" required>
-          <span>I understand that, while signed in, Hermes monitors new texts from numbers not saved in Contacts. Suspicious message content may be sent to Gemini for analysis. I agree to this processing.</span>
+          <span>While you are signed in, the background watcher first checks whether an incoming sender is saved in Contacts without fetching the message content. The background watcher does not read or store message content from saved contacts, and pauses if Contacts cannot be checked. Content from senders not saved in Contacts is read and stored for 30 days. Information included in a scam check is also stored in MongoDB for 30 days. Suspicious content may be sent to Google Gemini for analysis.</span>
         </label>
       </fieldset>
-      <p class="small-note">This prototype does not save these consent choices to your account.</p>
+      <p class="small-note">Your consent choices and the versions you agreed to are saved with your account.</p>
       <button class="btn" type="submit">Agree and continue</button>
       <div class="links center">
         <button class="link" type="button" id="consentBack">Back to signup</button>
@@ -1486,12 +1486,14 @@
       flow.consentAccepted = $("suRiskConsent").checked && $("suPrivacyConsent").checked;
       if (!flow.consentAccepted) return err("Please agree to both consent statements to continue.");
       if (flow.purpose === "login-consent") {
-        signedIn(flow.pendingUser);
+        const r = await run(f, "consent", { risk_consent: true, privacy_consent: true });
+        if (r) signedIn(r.state.user);
         return;
       }
       if (flow.purpose !== "signup-start") return err("Please start signup again.");
       const r = await run(f, "signup", {
-        name: flow.firstName + " " + flow.lastName,
+        first_name: flow.firstName,
+        last_name: flow.lastName,
         phone: $("suPhone").value,
         dob: flow.dob,
       });
@@ -1527,6 +1529,8 @@
       const result = await run(f, "finish", {
         phone: flow.phone, ticket: flow.ticket, password: flow.password,
         contact_name: flow.contactName, contact_phone: flow.contactPhone,
+        risk_consent: $("suRiskConsent").checked,
+        privacy_consent: $("suPrivacyConsent").checked,
       });
       if (result) signedIn(result.state.user);
     });
@@ -1554,7 +1558,7 @@
       if (a.length < 8 || a.length > 18 || !/[A-Z]/.test(a) || !/[a-z]/.test(a) || !/\d/.test(a))
         return err("Use 8–18 characters, including an uppercase letter, a lowercase letter, and a number.");
       const r = await run(f, "reset", { phone: flow.phone, ticket: flow.ticket, password: a });
-      if (r) signedIn(r.state.user);
+      if (r) showConsent("login-consent", r.state.user);
     });
 
     $("acctBtn").addEventListener("click", () => {
@@ -1578,8 +1582,17 @@
     if (demo && demo !== "signin" && demo !== "signup") return;
     if (demo) return view(demo);
     fetch("/api/auth/state").then(r => r.json())
-      .then(s => s.signed_in ? showConsent("login-consent", s.user) : signedOut(s.has_accounts))
-      .catch(() => {});
+      .then(s => {
+        if (s.storage_error) {
+          signedOut(false);
+          err(s.storage_error);
+        } else if (s.signed_in) showConsent("login-consent", s.user);
+        else signedOut(s.has_accounts);
+      })
+      .catch(() => {
+        signedOut(false);
+        err("Hermes could not check account storage. Please check your connection and try again.");
+      });
   })();
 
   // ===== Odyssey cursor: a precise dot, with a small sword following it =====

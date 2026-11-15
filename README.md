@@ -31,17 +31,34 @@ trick doesn't work.
 
 **Sign in first.** On first launch the window opens on a sign-up screen: first name, phone
 number and date of birth, then a 6-digit code sent to that phone (it can be re-sent after 30
-seconds), then a password. *Forgot password* sends a new code. Anyone under 18 or over 50 must
-add an emergency contact; for everyone else it is optional. Accounts are stored on this Mac
-only (`data/accounts.json`, not committed), with passwords and codes kept as salted hashes.
-The code is sent as an iMessage from this Mac, so it is free.
+seconds), then a password. *Forgot password* sends a new code. Anyone age 18 or younger, or
+50 or older must add an emergency contact; for everyone else it is optional. Accounts,
+consent records, and
+unknown-sender messages are stored in the `trojan` MongoDB database configured by
+`MONGODB_URI`. Passwords and one-time codes are kept as salted hashes. The code is sent as an
+iMessage from this Mac, so it is free.
 
-**Then nobody has to call Hermes.** While signed in, `watcher.py` reads every new incoming
-text. Senders saved in Contacts are left alone. For any other number, ordinary chat is ignored
-silently, and that number stays watched until it is saved in Contacts. When a message
-mentions prizes, bank or card details, SSN, codes, payments or an odd link, Hermes checks it,
-and if it is suspicious or a scam the window pops up, Hermes says so out loud, and the
+The `accounts` collection stores the separate first and last names, phone, date of birth,
+emergency contact, password hash, and current consent. Accepted consent text, versions, and
+timestamps are stored with the account; policy updates are retained in its consent history.
+`app_state` stores which local account is signed in.
+
+**Then nobody has to call Hermes.** While signed in, `watcher.py` checks the sender identity
+of each new incoming text against Contacts before fetching the message content. Messages from
+saved contacts are not fetched by the background watcher. Content from numbers confirmed not
+to be in Contacts is stored for 30 days, then automatically deleted; ordinary chat does not
+trigger an alert. If Contacts cannot be read, Hermes pauses rather than
+treating every sender as unknown. Unknown messages, scam checks, and scam-memory records are
+deleted automatically after 30 days. Older check or memory records without a retention
+timestamp receive a 30-day grace period when retention is initialized. Content included in
+manual scam checks is also retained for 30 days. Suspicious content may be sent to Google
+Gemini for analysis. When a message mentions prizes, bank or card details, SSN, codes,
+payments or an odd link, Hermes checks it, and if it is suspicious or a scam the window pops
+up, Hermes says so out loud, and the
 emergency contact gets an iMessage. The wake word and the swipe still work as before.
+
+The signup and sign-in consent screen records the accepted statement text, versions, and
+timestamp with the account. Consent records and account data have no automatic expiry.
 
 ## How it works
 
@@ -81,8 +98,8 @@ flowchart LR
 | `conversation.py` | Interactive turns: session ID, small history window, intents (check / why / call / verify) |
 | `memory.py` | Scam Memory: normalize senders/domains, MongoDB match, Gemini-assisted pattern notes |
 | `verify.py` | Trusted-contact verification for impersonation (iMessage + optional family phrase) |
-| `auth.py` | Accounts: sign-up, one-time code, password, reset, emergency contact |
-| `watcher.py` | Background guard for new texts from numbers not saved in Contacts |
+| `auth.py` | MongoDB accounts and consent records; unknown-message storage |
+| `watcher.py` | Background guard; stores only messages whose senders are confirmed absent from Contacts |
 | `mac.py` | Reads the latest text (`chat.db`, read-only), latest email, screenshot; iMessage; FaceTime |
 | `listener.py` | Wake-word listener + short follow-up window after each answer |
 | `voice.py` | Hermes's voice: cached wake-up line, chime, cloud voices, Mac fallback |

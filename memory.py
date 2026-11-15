@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 import config
 from mac import log
+from pymongo.errors import PyMongoError
 
 # ---------- Mongo ----------
 
@@ -40,9 +41,15 @@ def memory_collection():
             col.create_index([("created_at", -1)])
             col.create_index("fingerprints")
             col.create_index("verdict")
+            col.update_many(
+                {"expires_at": {"$exists": False}},
+                {"$set": {"expires_at": datetime.now(timezone.utc)
+                          + timedelta(days=config.MESSAGE_RETENTION_DAYS)}})
+            col.create_index("expires_at", expireAfterSeconds=0)
             _indexes_ok = True
-        except Exception as e:
-            log("scam memory index setup:", e)
+        except PyMongoError as e:
+            log("scam memory index setup failed:", type(e).__name__)
+            return None
     return col
 
 
@@ -193,6 +200,7 @@ def record_incident(check: dict, body: str = "") -> Optional[str]:
     if not signals["fingerprints"]:
         # still store a soft incident keyed by headline so patterns can soft-match later
         signals["fingerprints"] = ["soft:" + (check.get("headline") or "unknown")[:40].lower()]
+    created_at = check.get("created_at") or datetime.now(timezone.utc)
     doc = {
         "verdict": check["verdict"],
         "item": check.get("item", "message"),
@@ -204,7 +212,8 @@ def record_incident(check: dict, body: str = "") -> Optional[str]:
         "body_preview": (body or check.get("text") or check.get("email") or "")[:500],
         "signals": {k: signals[k] for k in ("phones", "emails", "domains", "names", "payments")},
         "fingerprints": signals["fingerprints"],
-        "created_at": check.get("created_at") or datetime.now(timezone.utc),
+        "created_at": created_at,
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=config.MESSAGE_RETENTION_DAYS),
     }
     try:
         res = col.insert_one(doc)

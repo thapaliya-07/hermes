@@ -26,6 +26,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from pymongo.errors import PyMongoError
 
 import auth
 import checker
@@ -96,7 +97,8 @@ def show(request: Request):
 
 
 class AuthRequest(BaseModel):
-    name: str = ""
+    first_name: str = ""
+    last_name: str = ""
     phone: str = ""
     dob: str = ""
     code: str = ""
@@ -104,6 +106,8 @@ class AuthRequest(BaseModel):
     password: str = ""
     contact_name: str = ""
     contact_phone: str = ""
+    risk_consent: bool = False
+    privacy_consent: bool = False
 
 
 def _local_only(request):
@@ -112,12 +116,14 @@ def _local_only(request):
 
 
 _AUTH_STEPS = {
-    "signup": lambda r: auth.start_signup(r.name, r.phone, r.dob),
+    "signup": lambda r: auth.start_signup(r.first_name, r.last_name, r.phone, r.dob),
     "resend": lambda r: auth.resend(r.phone),
     "verify": lambda r: auth.verify_code(r.phone, r.code),
     "finish": lambda r: auth.finish_signup(r.phone, r.ticket, r.password,
-                                           r.contact_name, r.contact_phone),
+                                           r.contact_name, r.contact_phone,
+                                           r.risk_consent, r.privacy_consent),
     "login":  lambda r: auth.login(r.phone, r.password),
+    "consent": lambda r: auth.accept_consent(r.risk_consent, r.privacy_consent),
     "forgot": lambda r: auth.start_reset(r.phone),
     "reset":  lambda r: auth.reset_password(r.phone, r.ticket, r.password),
     "contact": lambda r: auth.set_contact(r.contact_name, r.contact_phone),
@@ -128,7 +134,15 @@ _AUTH_STEPS = {
 @app.get("/api/auth/state")
 def auth_state(request: Request):
     _local_only(request)
-    return auth.status()
+    try:
+        return auth.status()
+    except auth.AuthError as e:
+        return {"signed_in": False, "user": None, "has_accounts": False,
+                "storage_error": str(e)}
+    except PyMongoError as e:
+        log("account database request failed:", type(e).__name__)
+        return {"signed_in": False, "user": None, "has_accounts": False,
+                "storage_error": "Hermes could not reach MongoDB. Check your connection and try again."}
 
 
 @app.post("/api/auth/{step}")
@@ -140,9 +154,13 @@ def auth_step(step: str, req: AuthRequest, request: Request):
         raise HTTPException(404, "Unknown step.")
     try:
         out = _AUTH_STEPS[step](req)
+        state = auth.status()
     except auth.AuthError as e:
         return {"ok": False, "error": str(e)}
-    return dict(out or {}, ok=True, state=auth.status())
+    except PyMongoError as e:
+        log("account database request failed:", type(e).__name__)
+        return {"ok": False, "error": "Hermes could not reach MongoDB. Check your connection and try again."}
+    return dict(out or {}, ok=True, state=state)
 
 
 @app.post("/ask")
@@ -319,8 +337,16 @@ def main():
         sys.exit(1)
     finally:
         probe.close()
-    auth.apply_to_config()      # alerts go to the signed-in person's emergency contact
-    if not auth.current():
+    try:
+        auth.apply_to_config()  # alerts go to the signed-in person's emergency contact
+        signed_in = bool(auth.current())
+    except auth.AuthError as e:
+        log("account storage is unavailable:", str(e))
+        signed_in = False
+    except PyMongoError as e:
+        log("account database request failed:", type(e).__name__)
+        signed_in = False
+    if not signed_in:
         log("nobody is signed in yet. The window opens so you can sign in.")
     voice.prepare()
     if "--no-mic" not in sys.argv:

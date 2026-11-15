@@ -32,6 +32,7 @@ GRANDMA_NAME = _get("GRANDMA_NAME", "Grandma")
 # TRUSTED_CONTACTS: "Maya:+12145550123,Sam:+12145550199"  (comma-separated Name:phone)
 VERIFY_PHRASE = _get("VERIFY_PHRASE")  # private family phrase; never spoken unprompted
 SCAM_MEMORY_DAYS = int(_get("SCAM_MEMORY_DAYS", "14") or "14")
+MESSAGE_RETENTION_DAYS = 30
 
 
 def _parse_trusted_contacts(raw: str):

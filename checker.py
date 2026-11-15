@@ -7,10 +7,11 @@ import json
 import re
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
 from pydantic import BaseModel
+from pymongo.errors import PyMongoError
 
 import config
 import mac
@@ -539,28 +540,44 @@ def calibrate_verdict(r, text=None, email=None):
 # ---------- MongoDB ----------
 
 _mongo = None
+_checks_indexes_ready = False
 _last_saved_id = None
 _last_saved_lock = threading.Lock()
 
 
 def checks_collection():
     """The Atlas collection, or None if MONGODB_URI is missing / unreachable."""
-    global _mongo
+    global _mongo, _checks_indexes_ready
     if not config.MONGODB_URI:
         return None
     if _mongo is None:
         from pymongo import MongoClient
         _mongo = MongoClient(config.MONGODB_URI, serverSelectionTimeoutMS=5000)
-    return _mongo["trojan"]["checks"]
+    col = _mongo["trojan"]["checks"]
+    if not _checks_indexes_ready:
+        try:
+            col.update_many(
+                {"expires_at": {"$exists": False}},
+                {"$set": {"expires_at": datetime.now(timezone.utc)
+                          + timedelta(days=config.MESSAGE_RETENTION_DAYS)}})
+            col.create_index("expires_at", expireAfterSeconds=0)
+        except PyMongoError as e:
+            log("MongoDB retention index setup failed:", type(e).__name__)
+            return None
+        _checks_indexes_ready = True
+    return col
 
 
 def _save(doc):
     global _last_saved_id
-    col = checks_collection()
-    if col is None:
-        log("MONGODB_URI not set, check not saved")
-        return
     try:
+        col = checks_collection()
+        if col is None:
+            log("MongoDB unavailable or not configured, check not saved")
+            return
+        doc.setdefault(
+            "expires_at",
+            datetime.now(timezone.utc) + timedelta(days=config.MESSAGE_RETENTION_DAYS))
         res = col.insert_one(doc)
         with _last_saved_lock:
             _last_saved_id = res.inserted_id

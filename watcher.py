@@ -17,6 +17,7 @@ import config
 import mac
 import voice
 from mac import log
+from pymongo.errors import PyMongoError
 
 POLL_SECONDS = 3          # how often to look for new messages
 QUIET_SECONDS = 300       # after alerting about a sender, stay quiet about them this long
@@ -111,17 +112,24 @@ def judge(m):
 
 
 def handle_message(m):
-    """Decide what to do with one new incoming message."""
+    """Check the sender first; fetch message content only for confirmed unknown senders."""
     global _told_contacts
-    sender, body = m["sender"], m["body"]
-    if not sender or not body:
+    sender = m["sender"]
+    if not sender or "id" not in m:
         return None
     known = mac.in_contacts(sender)
-    if known:
+    if known is True:
         return None                       # saved in Contacts: not watched
     if known is None and not _told_contacts:
         _told_contacts = True
-        log("guard: Contacts cannot be read, so every sender is treated as unknown.")
+        log("guard paused: Contacts cannot be read, so unknown senders cannot be identified safely.")
+    if known is None:
+        return False                       # leave cursor here and retry when Contacts is readable
+    body = mac.incoming_message_body(m["id"])
+    if not body:
+        return None
+    m["body"] = body
+    auth.record_unknown_message(m["id"], sender, body)
     if not is_risky(body):
         log("guard: ordinary message from unsaved number %s. Staying quiet." % _who(sender))
         return None
@@ -146,9 +154,16 @@ def _loop():
                 else:
                     log("guard: watching new messages from numbers not saved in Contacts.")
                 continue
-            for m in mac.incoming_since(last):
+            for m in mac.incoming_senders_since(last):
+                if handle_message(m) is False:
+                    break
                 last = m["id"]
-                handle_message(m)
+        except auth.AuthError as e:
+            log("guard paused:", str(e))
+            time.sleep(30)
+        except PyMongoError as e:
+            log("guard database error:", type(e).__name__)
+            time.sleep(10)
         except Exception as e:
             log("guard error:", e)
             time.sleep(5)

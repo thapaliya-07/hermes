@@ -111,24 +111,38 @@ def last_message_id():
         return None
 
 
-def incoming_since(rowid):
-    """Incoming messages newer than `rowid`, oldest first:
-    [{"id", "sender", "body"}]. Our own alerts and codes are left out."""
+def incoming_senders_since(rowid):
+    """Return only IDs and sender identities for new incoming messages.
+
+    Message content must be fetched separately, after the sender is confirmed absent
+    from Contacts.
+    """
     try:
         rows = _chat(
-            "SELECT m.ROWID, m.text, m.attributedBody, h.id "
+            "SELECT m.ROWID, h.id "
             "FROM message m LEFT JOIN handle h ON m.handle_id = h.ROWID "
             "WHERE m.is_from_me = 0 AND m.ROWID > ? ORDER BY m.ROWID LIMIT 50", (rowid,))
     except Exception as e:
         log("could not read Messages:", e)
         return []
-    out = []
-    for rid, text, blob, sender in rows:
-        body = _body(text, blob)
-        if any(tag in body[:48] for tag in _OWN_ALERTS):
-            body = ""
-        out.append({"id": rid, "sender": sender or "", "body": body[:3000]})
-    return out
+    return [{"id": rid, "sender": sender or ""} for rid, sender in rows]
+
+
+def incoming_message_body(rowid):
+    """Fetch one message body, called only after its sender is confirmed unknown."""
+    try:
+        rows = _chat(
+            "SELECT text, attributedBody FROM message "
+            "WHERE is_from_me = 0 AND ROWID = ? LIMIT 1", (rowid,))
+    except Exception as e:
+        log("could not read an unknown sender message:", e)
+        return None
+    if not rows:
+        return None
+    body = _body(rows[0][0], rows[0][1])
+    if any(tag in body[:48] for tag in _OWN_ALERTS):
+        return None
+    return body[:3000]
 
 
 def thread_tail(sender, before_id, limit=6):
