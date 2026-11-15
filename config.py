@@ -67,6 +67,12 @@ GEMINI_VOICE = _get("GEMINI_VOICE", "Kore")   # clear/firm. Others: Aoede, Sulaf
 GEMINI_TTS_MODEL = _get("GEMINI_TTS_MODEL", "gemini-3.8-flash-lite-tts")
 FISH_VOICE_ID = _get("FISH_VOICE_ID")  # empty = Fish default voice
 
+# Email for verification codes (sign-up and forgotten passwords), sent through Resend.
+RESEND_API_KEY = _get("RESEND_API_KEY")
+EMAIL_FROM = _get("EMAIL_FROM", "Hermes <verify@hermesguard.us>")   # domain must be verified in Resend
+# Testing only: print the code in the terminal instead of emailing it.
+EMAIL_DEV_CODES = _get("EMAIL_DEV_CODES").lower() in ("1", "true", "yes", "on")
+
 # Background guard: check new messages from numbers not saved in Contacts. "off" disables it.
 WATCH_MESSAGES = _get("WATCH_MESSAGES", "on").lower() not in ("0", "off", "false", "no")
 

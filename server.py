@@ -13,7 +13,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import Body, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -113,52 +113,18 @@ class _Signed:
 
 # ---------- accounts ----------
 
-class AuthRequest(BaseModel):
-    first_name: str = ""
-    last_name: str = ""
-    phone: str = ""
-    dob: str = ""
-    ticket: str = ""
-    password: str = ""
-    contact_name: str = ""
-    contact_phone: str = ""
-    risk_consent: bool = False
-    privacy_consent: bool = False
-
-
-_AUTH_STEPS = {
-    "signup": lambda r: auth.start_signup(r.first_name, r.last_name, r.phone, r.dob),
-    "finish": lambda r: auth.finish_signup(r.phone, r.ticket, r.password, r.contact_name,
-                                           r.contact_phone, r.risk_consent, r.privacy_consent),
-    "login":  lambda r: auth.login(r.phone, r.password),
-    "consent": lambda r: auth.accept_consent(r.risk_consent, r.privacy_consent),
-    "forgot": lambda r: auth.start_reset(r.phone, r.dob),
-    "reset":  lambda r: auth.reset_password(r.phone, r.ticket, r.password),
-    "contact": lambda r: auth.set_contact(r.contact_name, r.contact_phone),
-    "logout": lambda r: auth.logout(),
-}
-
-
 @app.get("/api/auth/state")
 def auth_state(request: Request):
-    try:
-        with _Signed(request):
-            return auth.status()
-    except auth.AuthError as e:
-        return {"signed_in": False, "user": None, "has_accounts": True, "storage_error": str(e)}
+    with _Signed(request):
+        return auth.status()
 
 
 @app.post("/api/auth/{step}")
-def auth_step(step: str, req: AuthRequest, request: Request, response: Response):
-    if step not in _AUTH_STEPS:
+def auth_step(step: str, request: Request, response: Response, body: dict = Body(default={})):
+    if step not in auth.STEPS:
         raise HTTPException(404, "Unknown step.")
-    try:
-        with _Signed(request, response):
-            out = _AUTH_STEPS[step](req)
-            state = auth.status()
-    except auth.AuthError as e:
-        return {"ok": False, "error": str(e)}
-    return dict(out or {}, ok=True, state=state)
+    with _Signed(request, response):
+        return auth.run_step(step, body)
 
 
 # ---------- the check ----------

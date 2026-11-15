@@ -530,6 +530,8 @@
     transition: background .25s, border-color .25s;
   }
   .auth label.pick:hover, .auth label.pick.has { background: #fff; border-color: var(--navy-soft); border-style: solid; }
+  .auth input.code { text-align: center; font-size: 26px; letter-spacing: .42em; padding-left: .42em; font-variant-numeric: tabular-nums; }
+  .auth .ok-note { color: #2f6b52; }
   .tell {
     display: block; margin: 0 auto 12px; padding: 12px 18px; max-width: 340px; border-radius: 22px;
     background: var(--tone); color: var(--parchment); font: 600 15px var(--sans); text-align: center;
@@ -730,7 +732,7 @@
       </div>
     </form>
 
-    <form data-v="signup" hidden>
+    <form data-v="signup" hidden novalidate>
       <h2>Create your account</h2>
       <p class="sub">Enter your details to get started.</p>
       <div class="name-row">
@@ -746,6 +748,9 @@
       <label for="suPhone">Phone number</label>
       <input id="suPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="20" minlength="10"
              pattern="[0-9]{10}" title="Enter a 10-digit phone number" required>
+      <label for="suEmail">Email</label>
+      <input id="suEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" required>
+      <p class="small-note">We email a 6-digit code to confirm it is you.</p>
       <label for="suDob">Date of birth</label>
       <input id="suDob" type="date" required>
       <p id="suAgeNote" class="small-note">An emergency contact is required for age 18 or younger, or 50 or older.</p>
@@ -803,19 +808,41 @@
 
     <form data-v="forgot" hidden>
       <h2>Forgot password</h2>
-      <p class="sub">Enter your phone number and date of birth to choose a new password.</p>
+      <p class="sub">Enter your phone number. We will email a code to the address on your account.</p>
       <label for="fgPhone">Phone number</label>
       <input id="fgPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="20" minlength="10"
              pattern="[0-9]{10}" title="Enter a 10-digit phone number" required>
-      <label for="fgDob">Date of birth</label>
-      <input id="fgDob" type="date" required>
-      <button class="btn" type="submit">Continue</button>
+      <button class="btn" type="submit">Email me a code</button>
       <div class="links center">
         <button class="link" type="button" data-go="signin">Back to sign in</button>
       </div>
     </form>
 
-    <form data-v="password" hidden>
+    <form data-v="code" hidden novalidate>
+      <h2>Check your email</h2>
+      <p class="sub" id="codeSub"></p>
+      <label for="codeIn">6-digit code</label>
+      <input id="codeIn" class="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+             maxlength="6" pattern="[0-9]{6}" title="Enter the 6-digit code" required>
+      <button class="btn" type="submit">Verify</button>
+      <div class="links">
+        <button class="link" type="button" id="resendBtn" disabled>Send a new code</button>
+        <button class="link" type="button" id="codeBack">Go back</button>
+      </div>
+    </form>
+
+    <form data-v="email" hidden>
+      <h2>Add your email</h2>
+      <p class="sub">{{NAME}} now needs an email address on your account. It is used to confirm it is you and to reset your password.</p>
+      <label for="emIn">Email</label>
+      <input id="emIn" type="email" inputmode="email" autocomplete="email" maxlength="254" required>
+      <button class="btn" type="submit">Email me a code</button>
+      <div class="links center">
+        <button class="link" type="button" id="emOut">Sign out</button>
+      </div>
+    </form>
+
+    <form data-v="password" hidden novalidate>
       <h2 id="pwTitle">Create a password</h2>
       <p class="sub">Use 8–18 characters, including an uppercase letter, a lowercase letter, and a number.</p>
       <label for="pw1">Password</label>
@@ -1257,16 +1284,21 @@
     const post = (step, body) => fetch("/api/auth/" + step, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {})
     }).then(r => r.json()).catch(() => ({ ok: false, error: "I could not reach {{NAME}}. Please try again." }));
-    const err = t => { errEl.textContent = t || ""; };
+    const err = t => { errEl.textContent = t || ""; if (!t) errEl.classList.remove("ok-note"); };
 
+    function clearFieldErrors() {
+      A.querySelectorAll(".field-error").forEach(e => e.remove());
+      A.querySelectorAll("[aria-invalid]").forEach(e => e.removeAttribute("aria-invalid"));
+    }
     function view(name) {
+      clearFieldErrors();
       A.querySelectorAll("form").forEach(f => { f.hidden = f.dataset.v !== name; });
       err(""); A.classList.add("on");
       const first = A.querySelector('form[data-v="' + name + '"] input');
       if (first) setTimeout(() => first.focus(), 60);
     }
     function signedIn(user) {
-      me = user; document.body.classList.add("signed");
+      me = user; document.body.classList.add("signed"); clearFieldErrors();
       $("acctBtn").textContent = (user.name || "?").slice(0, 1).toUpperCase();
       A.classList.remove("on");
       A.querySelectorAll("input").forEach(i => { i.value = ""; });
@@ -1290,6 +1322,7 @@
     async function run(form, step, body) {
       const btn = form.querySelector(".btn"); btn.disabled = true; err("");
       const r = await post(step, body); btn.disabled = false;
+      run.last = r;
       if (!r.ok) {
         const message = r.error || "Something went wrong. Please try again.";
         err(message);
@@ -1298,26 +1331,52 @@
           showInlineError($("siPass"), message);
         } else if (step === "forgot") {
           showInlineError($("fgPhone"), message);
+        } else if (step === "verify" || step === "forgot_verify" || step === "email_verify") {
+          showInlineError($("codeIn"), message);
+        } else if (step === "reset" && r.field === "password") {
+          showInlineError($("pw1"), message);
+        } else if (step === "email") {
+          showInlineError($("emIn"), message);
         }
       }
       return r.ok ? r : null;
     }
     // Signed in, but the consent on the account may be missing or out of date.
     function afterAuth(state) {
-      if (state.consent_required) showConsent("login-consent", state.user);
+      if (state.email_required) { $("emIn").value = ""; view("email"); }
+      else if (state.consent_required) showConsent("login-consent", state.user);
       else signedIn(state.user);
     }
+    // ----- the emailed code: used for sign-up, forgotten password and adding an email -----
+    let tick = null;
+    function countdown(seconds) {
+      const b = $("resendBtn"); let left = seconds; clearInterval(tick);
+      const paint = () => { b.disabled = left > 0; b.textContent = left > 0 ? "New code in " + left + "s" : "Send a new code"; };
+      paint(); tick = setInterval(() => { left -= 1; paint(); if (left <= 0) clearInterval(tick); }, 1000);
+    }
+    function toCode(r) {
+      flow.phone = r.phone; flow.codeFor = r.purpose;
+      $("codeSub").textContent = r.purpose === "reset"
+        ? "If this number has an account, a 6-digit code was emailed to its address. It is good for 10 minutes."
+        : "Enter the 6-digit code we emailed to " + r.email_masked + ". It is good for 10 minutes.";
+      $("codeIn").value = ""; view("code"); countdown(r.resend_in || 30);
+    }
+    // Where the server's "field" belongs on the sign-up form.
+    const fieldInputs = { first_name: "suFirstName", last_name: "suLastName", phone: "suPhone",
+      email: "suEmail", dob: "suDob", password: "suPassword",
+      contact_name: "suContactName", contact_phone: "suContactPhone" };
     const form = name => A.querySelector('form[data-v="' + name + '"]');
     const on = (name, fn) => form(name).addEventListener("submit", e => { e.preventDefault(); fn(form(name)); });
     const inlineErrors = new WeakMap();
     const fieldLabels = {
       suFirstName: "first name", suLastName: "last name", suPhone: "your phone number",
       siPhone: "your phone number", fgPhone: "your phone number",
+      suEmail: "your email address", emIn: "your email address", codeIn: "the 6-digit code",
       suDob: "your birthday", suContactName: "your emergency contact's name",
       suContactPhone: "a valid emergency contact phone number",
       siPass: "your password", suPassword: "a password",
       suPasswordConfirm: "your password again", pw1: "your password",
-      pw2: "your password again", fgDob: "your birthday",
+      pw2: "your password again",
       acName: "your emergency contact's name", acPhone: "a valid emergency contact phone number",
     };
     function errorMessage(input) {
@@ -1425,7 +1484,7 @@
         event.target.value = event.target.value.replace(/\D/g, "").slice(0, 10);
       });
     });
-    $("suDob").max = $("fgDob").max = new Date().toISOString().slice(0, 10);
+    $("suDob").max = new Date().toISOString().slice(0, 10);
     function ageOn(value) {
       if (!value) return null;
       const born = new Date(value + "T00:00:00");
@@ -1458,19 +1517,40 @@
       const r = await run(f, "login", { phone: $("siPhone").value, password: $("siPass").value });
       if (r) afterAuth(r.state);
     });
+    const PASSWORD_RULE = "Use 8–18 characters, including an uppercase letter, a lowercase letter, and a number.";
+    const passwordOk = p => p.length >= 8 && p.length <= 18 && /[A-Z]/.test(p) && /[a-z]/.test(p) && /\d/.test(p);
     on("signup", async f => {
-      const password = $("suPassword").value;
-      if (password !== $("suPasswordConfirm").value) {
-        err("The passwords do not match.");
+      // Checked here in plain code as well, so nothing depends on the browser's own form checks.
+      const v = id => $(id).value.trim();
+      const problems = [];
+      const need = (id, ok, message) => { if (!ok) problems.push([id, message]); };
+      const age = ageOn($("suDob").value);
+      const required = age !== null && (age <= 18 || age >= 50);
+      need("suFirstName", v("suFirstName"), "Please enter first name.");
+      need("suLastName", v("suLastName"), "Please enter last name.");
+      need("suPhone", /^\d{10}$/.test(v("suPhone")), "Please enter a valid 10-digit phone number.");
+      need("suEmail", /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v("suEmail")), "Please enter a valid email address.");
+      need("suDob", age !== null && age >= 0, "Please enter your birthday.");
+      if (required) {
+        need("suContactName", v("suContactName"), "Please enter your emergency contact's name.");
+        need("suContactPhone", /^\d{10}$/.test(v("suContactPhone")), "Please enter a valid emergency contact phone number.");
+        need("suContactPhone", v("suContactPhone") !== v("suPhone"), "The emergency contact must be someone else's number.");
+      }
+      need("suPassword", passwordOk($("suPassword").value), PASSWORD_RULE);
+      need("suPasswordConfirm", $("suPassword").value === $("suPasswordConfirm").value, "Your passwords do not match.");
+      if (problems.length) {
+        problems.forEach(([id, message]) => showInlineError($(id), message));
+        $(problems[0][0]).focus();
         return;
       }
-      flow.firstName = $("suFirstName").value.trim();
-      flow.lastName = $("suLastName").value.trim();
+      flow.firstName = v("suFirstName");
+      flow.lastName = v("suLastName");
+      flow.email = v("suEmail");
       flow.dob = $("suDob").value;
-      flow.contactName = $("suContactName").value.trim();
-      flow.contactPhone = $("suContactPhone").value.trim();
-      flow.needs = ageOn(flow.dob) <= 18 || ageOn(flow.dob) >= 50;
-      flow.password = password;
+      flow.contactName = required ? v("suContactName") : "";
+      flow.contactPhone = required ? v("suContactPhone") : "";
+      flow.needs = required;
+      flow.password = $("suPassword").value;
       showConsent("signup-start");
     });
     $("consentBack").addEventListener("click", async () => {
@@ -1495,42 +1575,67 @@
       }
       if (flow.purpose !== "signup-start") return err("Please start signup again.");
       const r = await run(f, "signup", {
-        first_name: flow.firstName,
-        last_name: flow.lastName,
-        phone: $("suPhone").value,
-        dob: flow.dob,
+        first_name: flow.firstName, last_name: flow.lastName, phone: $("suPhone").value,
+        email: flow.email, dob: flow.dob, password: flow.password,
+        contact_name: flow.contactName, contact_phone: flow.contactPhone,
+        risk_consent: true, privacy_consent: true,
       });
-      if (r) {
-        // No code is sent: the account is created straight away.
-        const done = await run(f, "finish", {
-          phone: r.phone, ticket: r.ticket, password: flow.password,
-          contact_name: flow.contactName, contact_phone: flow.contactPhone,
-          risk_consent: true, privacy_consent: true,
-        });
-        if (done) signedIn(done.state.user);
-      } else {
-        const message = errEl.textContent;
-        view("signup");
-        showInlineError($("suPhone"), message);
-        err("");
+      if (r) toCode(r);            // the account is created only after the emailed code
+      else {
+        const message = errEl.textContent, input = fieldInputs[(run.last || {}).field];
+        if (input) { view("signup"); showInlineError($(input), message); err(""); }
       }
     });
     on("forgot", async f => {
-      const r = await run(f, "forgot", { phone: $("fgPhone").value, dob: $("fgDob").value });
-      if (!r) return;
-      flow.phone = r.phone; flow.ticket = r.ticket; flow.purpose = "reset";
-      $("pwTitle").textContent = "Choose a new password";
-      $("pwBtn").textContent = "Save and sign in";
-      $("pw1").value = $("pw2").value = "";
-      view("password");
+      const r = await run(f, "forgot", { phone: $("fgPhone").value });
+      if (r) toCode(r);
+    });
+    on("email", async f => {
+      const r = await run(f, "email", { email: $("emIn").value });
+      if (r) toCode(r);
+    });
+    $("emOut").addEventListener("click", async () => { await post("logout"); signedOut(true); });
+    $("codeIn").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); });
+    on("code", async f => {
+      const code = $("codeIn").value;
+      if (!/^\d{6}$/.test(code)) return showInlineError($("codeIn"), "Please enter the 6-digit code.");
+      if (flow.codeFor === "reset") {
+        const r = await run(f, "forgot_verify", { phone: flow.phone, code });
+        if (!r) return;
+        clearInterval(tick);
+        flow.ticket = r.ticket;
+        $("pwTitle").textContent = "Choose a new password";
+        $("pwBtn").textContent = "Save password";
+        $("pw1").value = $("pw2").value = "";
+        view("password");
+      } else if (flow.codeFor === "email") {
+        const r = await run(f, "email_verify", { code });
+        if (r) { clearInterval(tick); afterAuth(r.state); }
+      } else {
+        const r = await run(f, "verify", { phone: flow.phone, code });
+        if (r) { clearInterval(tick); signedIn(r.state.user); }
+      }
+    });
+    $("resendBtn").addEventListener("click", async () => {
+      $("resendBtn").disabled = true;
+      const r = await post("resend", { phone: flow.phone });
+      if (r.ok) { err("A new code is on its way."); countdown(r.resend_in || 30); }
+      else { err(r.error); $("resendBtn").disabled = false; }
+    });
+    $("codeBack").addEventListener("click", () => {
+      clearInterval(tick);
+      view(flow.codeFor === "reset" ? "forgot" : flow.codeFor === "email" ? "email" : "signup");
     });
     on("password", async f => {
       const a = $("pw1").value, b = $("pw2").value;
-      if (a !== b) return err("The two passwords do not match.");
-      if (a.length < 8 || a.length > 18 || !/[A-Z]/.test(a) || !/[a-z]/.test(a) || !/\d/.test(a))
-        return err("Use 8–18 characters, including an uppercase letter, a lowercase letter, and a number.");
+      if (!passwordOk(a)) return showInlineError($("pw1"), PASSWORD_RULE);
+      if (a !== b) return showInlineError($("pw2"), "Your passwords do not match.");
       const r = await run(f, "reset", { phone: flow.phone, ticket: flow.ticket, password: a });
-      if (r) afterAuth(r.state);
+      if (!r) return;
+      // The password is changed, but nobody is signed in: they sign in with the new one.
+      flow.ticket = ""; $("pw1").value = $("pw2").value = "";
+      view("signin");
+      errEl.classList.add("ok-note"); err("Your password is changed. Please sign in.");
     });
 
     // ----- phone / browser mode: the swipe opens this, the answer comes straight back -----
@@ -1594,7 +1699,7 @@
 
     $("acctBtn").addEventListener("click", () => {
       if (!me) return;
-      $("acWho").textContent = me.name + " · " + me.phone_masked;
+      $("acWho").textContent = me.name + " · " + me.phone_masked + (me.email_masked ? " · " + me.email_masked : "");
       $("acSub").textContent = WEB
         ? "Swipe on the main screen to check a screenshot or a pasted message."
         : "{{NAME}} watches new messages from numbers not saved in your Contacts.";

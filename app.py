@@ -22,11 +22,10 @@ import threading
 from typing import Optional
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from pymongo.errors import PyMongoError
 
 import auth
 import checker
@@ -96,68 +95,25 @@ def show(request: Request):
     return {"ok": True}
 
 
-class AuthRequest(BaseModel):
-    first_name: str = ""
-    last_name: str = ""
-    phone: str = ""
-    dob: str = ""
-    ticket: str = ""
-    password: str = ""
-    contact_name: str = ""
-    contact_phone: str = ""
-    risk_consent: bool = False
-    privacy_consent: bool = False
-
-
 def _local_only(request):
     if request.client and request.client.host not in ("127.0.0.1", "::1"):
         raise HTTPException(403, "Accounts are managed on the Mac itself.")
 
 
-_AUTH_STEPS = {
-    "signup": lambda r: auth.start_signup(r.first_name, r.last_name, r.phone, r.dob),
-    "finish": lambda r: auth.finish_signup(r.phone, r.ticket, r.password,
-                                           r.contact_name, r.contact_phone,
-                                           r.risk_consent, r.privacy_consent),
-    "login":  lambda r: auth.login(r.phone, r.password),
-    "consent": lambda r: auth.accept_consent(r.risk_consent, r.privacy_consent),
-    "forgot": lambda r: auth.start_reset(r.phone, r.dob),
-    "reset":  lambda r: auth.reset_password(r.phone, r.ticket, r.password),
-    "contact": lambda r: auth.set_contact(r.contact_name, r.contact_phone),
-    "logout": lambda r: auth.logout(),
-}
-
-
 @app.get("/api/auth/state")
 def auth_state(request: Request):
     _local_only(request)
-    try:
-        return auth.status()
-    except auth.AuthError as e:
-        return {"signed_in": False, "user": None, "has_accounts": False,
-                "storage_error": str(e)}
-    except PyMongoError as e:
-        log("account database request failed:", type(e).__name__)
-        return {"signed_in": False, "user": None, "has_accounts": False,
-                "storage_error": "Hermes could not reach MongoDB. Check your connection and try again."}
+    return auth.status()
 
 
 @app.post("/api/auth/{step}")
-def auth_step(step: str, req: AuthRequest, request: Request):
-    """Sign-up, password, sign-in and reset. Problems the person can
-    fix come back as {"ok": false, "error": "..."} to show on screen."""
+def auth_step(step: str, request: Request, body: dict = Body(default={})):
+    """Sign-up, email code, sign-in, password reset. Problems the person can fix come
+    back as {"ok": false, "error": "...", "field": "..."} to show on screen."""
     _local_only(request)
-    if step not in _AUTH_STEPS:
+    if step not in auth.STEPS:
         raise HTTPException(404, "Unknown step.")
-    try:
-        out = _AUTH_STEPS[step](req)
-        state = auth.status()
-    except auth.AuthError as e:
-        return {"ok": False, "error": str(e)}
-    except PyMongoError as e:
-        log("account database request failed:", type(e).__name__)
-        return {"ok": False, "error": "Hermes could not reach MongoDB. Check your connection and try again."}
-    return dict(out or {}, ok=True, state=state)
+    return auth.run_step(step, body)
 
 
 @app.post("/ask")

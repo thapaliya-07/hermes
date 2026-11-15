@@ -30,10 +30,12 @@ trick doesn't work.
 ## Accounts and the background guard
 
 **Sign in first.** On first launch the window opens on a sign-up screen: first and last
-name, phone number, date of birth, emergency contact and a password, followed by a consent
-and privacy screen. No code is sent to the phone. *Forgot password* asks for the phone number
-and date of birth, then a new password. Anyone 18 or younger, or 50 or older, must add an
-emergency contact; for everyone else it is optional. Each account (name,
+name, phone number, email, date of birth, emergency contact and a password, then a consent
+and privacy screen. A 6-digit code is emailed to confirm the address, and the account is
+created only when that code is entered. *Forgot password* emails a code to the address on
+the account; after choosing a new password the person signs in with it (a reset never signs
+anyone in by itself). Anyone 18 or younger, or 50 or older, must add an emergency contact;
+for everyone else it is optional. Each account (name,
 phone, date of birth, emergency contact, password hash) is a document in the MongoDB `users`
 collection, so nothing about a person is set in `.env` and the same account works from any
 Mac. Only "who is signed in on this Mac" is kept locally (`data/session.json`, not
@@ -76,6 +78,27 @@ MongoDB) and `POST /api/check`. It has no Mac-only parts. To run it locally:
 
 The free plan sleeps after 15 minutes without visitors and takes about a minute to wake.
 
+## Email codes
+
+Codes are sent through [Resend](https://resend.com) (free plan), over HTTPS. Set
+`RESEND_API_KEY`, and `EMAIL_FROM` on a domain verified in Resend, in `.env` and in the
+hosting service's environment. For testing on your own machine, `EMAIL_DEV_CODES=1` prints
+the code in the terminal instead. A code lasts 10 minutes, allows 5 wrong tries, can be
+re-sent after 30 seconds, and at most 5 are sent per phone number per hour.
+
+## Tests
+
+```bash
+.venv/bin/python -m unittest discover -s tests -t .
+```
+
+- `tests/test_auth_unit.py`: account rules, email codes, sign-in, forgotten password.
+- `tests/test_guard_unit.py`: the background guard, the verdict safety net, the mailer.
+- `tests/test_web_integration.py`: the hosted site over real HTTP requests.
+- `tests/test_mac_integration.py`: the Mac app's own routes.
+
+The tests never touch the real database, send email or messages, or call Gemini.
+
 ## How it works
 
 ```mermaid
@@ -115,7 +138,8 @@ flowchart LR
 | `memory.py` | Scam Memory: normalize senders/domains, MongoDB match, Gemini-assisted pattern notes |
 | `verify.py` | Trusted-contact verification for impersonation (iMessage + optional family phrase) |
 | `server.py` | The hosted web version for iPhone and browsers (no Mac-only parts) |
-| `auth.py` | Accounts: sign-up, password, reset, emergency contact |
+| `auth.py` | Accounts: sign-up, email code, sign-in, password reset, consent, emergency contact |
+| `mailer.py` | Sends the verification code by email |
 | `watcher.py` | Background guard for new texts from numbers not saved in Contacts |
 | `mac.py` | Reads the latest text (`chat.db`, read-only), latest email, screenshot; iMessage; FaceTime |
 | `listener.py` | Wake-word listener + short follow-up window after each answer |
