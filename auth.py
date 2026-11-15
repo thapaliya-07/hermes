@@ -28,8 +28,11 @@ SESSION = DATA / "session.json"
 
 LOGIN_TRIES = 5          # wrong passwords allowed before a pause
 LOGIN_PAUSE = 60         # seconds
-MIN_PASSWORD = 8
-YOUNG, OLD = 18, 50      # under 18 or over 50: an emergency contact is required
+MIN_PASSWORD, MAX_PASSWORD = 8, 18
+YOUNG, OLD = 18, 50      # 18 or younger, or 50 or older: an emergency contact is required
+# What the person agrees to on the consent screen. Changing a version asks everyone again.
+RISK_CONSENT_VERSION = "2026-11-15-v3"
+PRIVACY_CONSENT_VERSION = "2026-11-15-v3"
 
 _lock = threading.RLock()
 _pending = {}            # phone -> a sign-up or reset in progress (memory only)
@@ -109,7 +112,9 @@ def _sign_in(user):
     global _session
     keep = None
     if user:
-        keep = {k: user.get(k, "") for k in ("name", "phone", "dob", "contact_name", "contact_phone")}
+        keep = {k: user.get(k, "") for k in ("name", "first_name", "last_name", "phone", "dob",
+                                            "contact_name", "contact_phone")}
+        keep["consent"] = user.get("consent") or {}
     _session = {"user": keep, "seen": bool(user) or _read_session().get("seen", False)}
     _write(SESSION, _session)
     apply_to_config()
@@ -150,7 +155,7 @@ def age_on(dob, today=None):
 
 def needs_contact(dob):
     years = age_on(dob)
-    return years < YOUNG or years > OLD
+    return years <= YOUNG or years >= OLD
 
 
 def _hash(secret, salt):
@@ -158,10 +163,22 @@ def _hash(secret, salt):
 
 
 def _check_password(password):
-    if len(password or "") < MIN_PASSWORD:
-        raise AuthError("Use at least %d characters for your password." % MIN_PASSWORD)
-    if not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
-        raise AuthError("Use both letters and numbers in your password.")
+    password = password or ""
+    if (not MIN_PASSWORD <= len(password) <= MAX_PASSWORD or not re.search(r"[A-Z]", password)
+            or not re.search(r"[a-z]", password) or not re.search(r"\d", password)):
+        raise AuthError("Use 8–18 characters, including an uppercase letter, "
+                        "a lowercase letter, and a number.")
+
+
+def _consent_now():
+    return {"risk_version": RISK_CONSENT_VERSION, "privacy_version": PRIVACY_CONSENT_VERSION,
+            "accepted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+
+
+def _consent_ok(user):
+    c = (user or {}).get("consent") or {}
+    return (c.get("risk_version") == RISK_CONSENT_VERSION
+            and c.get("privacy_version") == PRIVACY_CONSENT_VERSION)
 
 
 def _public(user):
@@ -183,16 +200,20 @@ def _ticket(phone, entry):
             "needs_contact": entry.get("needs_contact", False)}
 
 
-def start_signup(name, phone, dob):
-    name = re.sub(r"\s+", " ", (name or "").strip())[:40]
-    if not name:
+def start_signup(first_name, last_name, phone, dob):
+    first_name = re.sub(r"\s+", " ", (first_name or "").strip())[:40]
+    last_name = re.sub(r"\s+", " ", (last_name or "").strip())[:40]
+    if not first_name:
         raise AuthError("Please enter your first name.")
+    if not last_name:
+        raise AuthError("Please enter your last name.")
     phone = normalize_phone(phone)
     must = needs_contact(dob)            # also checks the date
     with _lock:
         if _get_user(phone):
             raise AuthError("This number already has an account. Please sign in.")
-        return _ticket(phone, {"purpose": "signup", "name": name, "dob": dob.strip(),
+        return _ticket(phone, {"purpose": "signup", "first_name": first_name, "last_name": last_name,
+                               "name": first_name + " " + last_name, "dob": dob.strip(),
                                "needs_contact": must})
 
 
@@ -237,16 +258,22 @@ def _contact(own_phone, contact_name, contact_phone, required):
 
 # ---------- finishing sign-up, signing in, resetting ----------
 
-def finish_signup(phone, ticket, password, contact_name="", contact_phone=""):
+def finish_signup(phone, ticket, password, contact_name="", contact_phone="",
+                  risk_consent=False, privacy_consent=False):
     phone = normalize_phone(phone)
     with _lock:
         entry = _ticketed(phone, ticket, "signup")
         _check_password(password)
+        if not risk_consent or not privacy_consent:
+            raise AuthError("Please agree to both consent statements to continue.")
         cname, cphone = _contact(phone, contact_name, contact_phone, entry["needs_contact"])
         salt = secrets.token_hex(16)
-        user = {"name": entry["name"], "phone": phone, "dob": entry["dob"],
+        consent = _consent_now()
+        user = {"name": entry["name"], "first_name": entry["first_name"],
+                "last_name": entry["last_name"], "phone": phone, "dob": entry["dob"],
                 "salt": salt, "password": _hash(password, salt),
-                "contact_name": cname, "contact_phone": cphone, "created": int(time.time())}
+                "contact_name": cname, "contact_phone": cphone, "created": int(time.time()),
+                "consent": consent, "consent_history": [consent]}
         _put_user(user)
         _pending.pop(phone, None)
         _sign_in(user)
@@ -291,10 +318,27 @@ def logout():
         _sign_in(None)
 
 
+def accept_consent(risk_consent, privacy_consent):
+    """Record that the signed-in person agreed to the current consent statements."""
+    if not risk_consent or not privacy_consent:
+        raise AuthError("Please agree to both consent statements to continue.")
+    with _lock:
+        me = signed_in()
+        user = _get_user(me["phone"]) if me else None
+        if not user:
+            raise AuthError("Please sign in first.")
+        if not _consent_ok(user):
+            user["consent"] = _consent_now()
+            user.setdefault("consent_history", []).append(user["consent"])
+            _put_user(user)
+        _sign_in(user)
+    return _public(user)
+
+
 def set_contact(contact_name, contact_phone):
     """Change the emergency contact of the signed-in person."""
     with _lock:
-        me = current()
+        me = signed_in()
         user = _get_user(me["phone"]) if me else None
         if not user:
             raise AuthError("Please sign in first.")
@@ -318,7 +362,7 @@ def migrate_local():
                 _put_user(user)
                 moved += 1
         who = (old.get("users") or {}).get(old.get("signed_in") or "")
-        if who and not current():
+        if who and not signed_in():
             _sign_in(who)
         os.replace(FILE, FILE.with_suffix(".json.migrated"))
         log("moved %d local account(s) into the database" % moved)
@@ -328,14 +372,22 @@ def migrate_local():
 
 # ---------- who is signed in ----------
 
-def current():
-    """The person signed in on this Mac (name, phone, dob, emergency contact), or None."""
+def signed_in():
+    """Whoever is signed in on this Mac, whether or not they have agreed to the consent."""
     return _read_session().get("user")
 
 
+def current():
+    """The signed-in person, once they have agreed to the current consent statements.
+    Until then nothing runs for them: no guard, no wake word, no alerts."""
+    user = signed_in()
+    return user if user and _consent_ok(user) else None
+
+
 def status():
-    user = current()
+    user = signed_in()
     return {"signed_in": bool(user), "user": _public(user) if user else None,
+            "consent_required": bool(user and not _consent_ok(user)),
             "has_accounts": bool(_read_session().get("seen"))}
 
 

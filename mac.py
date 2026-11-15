@@ -112,23 +112,30 @@ def last_message_id():
 
 
 def incoming_since(rowid):
-    """Incoming messages newer than `rowid`, oldest first:
-    [{"id", "sender", "body"}]. Our own alerts and codes are left out."""
+    """Incoming messages newer than `rowid`, oldest first: [{"id", "sender"}].
+    Only who sent them. The content is fetched separately (message_body), and only
+    after Contacts shows the sender is not saved."""
     try:
         rows = _chat(
-            "SELECT m.ROWID, m.text, m.attributedBody, h.id "
-            "FROM message m LEFT JOIN handle h ON m.handle_id = h.ROWID "
+            "SELECT m.ROWID, h.id FROM message m LEFT JOIN handle h ON m.handle_id = h.ROWID "
             "WHERE m.is_from_me = 0 AND m.ROWID > ? ORDER BY m.ROWID LIMIT 50", (rowid,))
     except Exception as e:
         log("could not read Messages:", e)
         return []
-    out = []
-    for rid, text, blob, sender in rows:
-        body = _body(text, blob)
-        if any(tag in body[:48] for tag in _OWN_ALERTS):
-            body = ""
-        out.append({"id": rid, "sender": sender or "", "body": body[:3000]})
-    return out
+    return [{"id": rid, "sender": sender or ""} for rid, sender in rows]
+
+
+def message_body(rowid):
+    """The text of one message. Our own alerts come back empty."""
+    try:
+        rows = _chat("SELECT text, attributedBody FROM message WHERE ROWID = ?", (rowid,))
+    except Exception as e:
+        log("could not read Messages:", e)
+        return ""
+    body = _body(*rows[0]) if rows else ""
+    if any(tag in body[:48] for tag in _OWN_ALERTS):
+        return ""
+    return body[:3000]
 
 
 def thread_tail(sender, before_id, limit=6):

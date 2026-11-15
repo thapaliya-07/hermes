@@ -29,10 +29,11 @@ trick doesn't work.
 
 ## Accounts and the background guard
 
-**Sign in first.** On first launch the window opens on a sign-up screen: first name, phone
-number and date of birth, then a password. No code is sent to the phone. *Forgot password*
-asks for the phone number and date of birth, then a new password. Anyone under 18 or over
-50 must add an emergency contact; for everyone else it is optional. Each account (name,
+**Sign in first.** On first launch the window opens on a sign-up screen: first and last
+name, phone number, date of birth, emergency contact and a password, followed by a consent
+and privacy screen. No code is sent to the phone. *Forgot password* asks for the phone number
+and date of birth, then a new password. Anyone 18 or younger, or 50 or older, must add an
+emergency contact; for everyone else it is optional. Each account (name,
 phone, date of birth, emergency contact, password hash) is a document in the MongoDB `users`
 collection, so nothing about a person is set in `.env` and the same account works from any
 Mac. Only "who is signed in on this Mac" is kept locally (`data/session.json`, not

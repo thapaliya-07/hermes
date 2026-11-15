@@ -435,7 +435,7 @@
     opacity: 0; pointer-events: none; transition: opacity .45s var(--soft);
   }
   .auth.on { opacity: 1; pointer-events: auto; }
-  .auth-card { width: 100%; max-width: 340px; margin: auto; }
+  .auth-card { width: 100%; max-width: 460px; margin: auto; }
   .auth form { animation: auth-in .5s var(--ease) both; }
   .auth form[hidden] { display: none; }
   @keyframes auth-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -445,7 +445,7 @@
     text-align: center; margin: 0 0 6px; color: var(--navy);
   }
   .auth .sub { text-align: center; color: var(--mute); font-size: 14.5px; line-height: 1.45; margin: 0 0 18px; }
-  .auth label { display: block; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  .auth label { display: block; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
     color: var(--mute); margin: 12px 2px 6px; }
   .auth input {
     width: 100%; height: 48px; padding: 0 14px; font: 500 16px var(--sans); color: var(--ink);
@@ -454,6 +454,41 @@
     transition: border-color .25s, box-shadow .25s, background .25s;
   }
   .auth input:focus { border-color: var(--navy-soft); background: #fff; box-shadow: 0 0 0 4px rgba(26,44,68,.1); }
+  .auth input[aria-invalid="true"] { border-color:#d9303e; color:#b42332; }
+  .auth input[aria-invalid="true"]:focus { border-color:#d9303e; box-shadow:0 0 0 3px rgba(217,48,62,.12); }
+  .auth label.consent[aria-invalid="true"] { color:#b42332; }
+  .auth .field-error { display:flex; align-items:flex-start; gap:7px; margin:7px 2px 0;
+    color:#c52232; font-size:13px; line-height:1.4; text-align:left; }
+  .auth .field-error[hidden] { display:none; }
+  .auth .field-error::before { content:"!"; flex:0 0 16px; width:16px; height:16px; margin-top:1px;
+    border:1.5px solid currentColor; border-radius:50%; font-size:11px; font-weight:700;
+    line-height:14px; text-align:center; }
+  .auth input.code { text-align: center; font-size: 26px; letter-spacing: .42em; padding-left: .42em; font-variant-numeric: tabular-nums; }
+  .auth .name-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .auth .name-row label { margin-top: 8px; }
+  .auth input.name-input { height: 48px; font-size: 16px; }
+  .auth .password-field { position: relative; }
+  .auth .password-field input { padding-right: 52px; }
+  .auth .password-toggle {
+    position: absolute; top: 50%; right: 5px; transform: translateY(-50%);
+    display: grid; place-items: center; width: 40px; height: 40px;
+    border: 0; border-radius: 50%; padding: 0; background: transparent; color: var(--navy);
+  }
+  .auth .password-toggle:hover { background: rgba(26,44,68,.07); }
+  .auth .password-toggle svg { width: 23px; height: 23px; fill: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .auth .password-toggle .eye-closed,
+  .auth .password-toggle.showing .eye-open { display: none !important; }
+  .auth .password-toggle.showing .eye-closed { display: block !important; }
+  .auth .consents { margin: 16px 0 4px; padding: 13px; border: 1px solid var(--line); border-radius: 12px;
+    background: rgba(255,255,255,.35); text-align: left; }
+  .auth .consents[aria-invalid="true"] { border-color:#d9303e; }
+  .auth .consents legend { padding: 0 5px; font-size: 12px; font-weight: 600; color: var(--mute); }
+  .auth .consent { display: grid; grid-template-columns: 18px 1fr; gap: 9px; align-items: start;
+    margin: 8px 0; color: var(--mute); font-size: 12px; line-height: 1.45; }
+  .auth .consent input { width: 16px; height: 16px; margin: 1px 0 0; padding: 0; accent-color: var(--navy); }
+  .auth .small-note { margin: 7px 2px 0; color: var(--mute); font-size: 12px; line-height: 1.4; }
+  #suEmergency[hidden] { display: none; }
   .auth .btn {
     width: 100%; height: 50px; margin-top: 18px; border: 0; border-radius: 25px;
     background: var(--navy); color: var(--parchment); font: 600 16px var(--sans); letter-spacing: .01em;
@@ -463,6 +498,9 @@
   .auth .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 24px -10px rgba(26,44,68,.75); }
   .auth .btn:active { transform: scale(.985); }
   .auth .btn[disabled] { opacity: .55; transform: none; }
+  .auth .btn.secondary-btn { margin-top: 10px; background: rgba(26,44,68,.08); color: var(--navy);
+    box-shadow: none; }
+  .auth .btn.secondary-btn:hover { background: rgba(26,44,68,.13); box-shadow: none; }
   .auth .links { display: flex; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
   .auth .links.center { justify-content: center; }
   .auth .link { background: none; border: 0; padding: 6px 2px; font: 600 14px var(--sans); color: var(--navy-soft);
@@ -472,6 +510,7 @@
   .auth .err { min-height: 20px; margin: 12px 2px 0; font-size: 14px; line-height: 1.4; color: #8a3d34; text-align: center; }
   .auth .note { font-size: 13px; color: var(--mute); line-height: 1.45; margin: 10px 2px 0; }
   .auth .who { text-align: center; font-size: 15px; color: var(--ink); margin: 0 0 4px; }
+  @media (max-width:420px) { .auth .name-row { grid-template-columns: 1fr; gap: 0; } }
   header .acct { margin-left: 8px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line);
     background: rgba(255,255,255,.45); color: var(--navy); font: 600 13px var(--sans); display: none;
     align-items: center; justify-content: center; padding: 0; transition: background .25s, transform .3s var(--ease); }
@@ -653,28 +692,91 @@
       <h2>Welcome aboard</h2>
       <p class="sub">Sign in and {{NAME}} keeps watch over your messages.</p>
       <label for="siPhone">Phone number</label>
-      <input id="siPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(214) 555-0123" required>
+      <input id="siPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="20" minlength="10"
+             pattern="[0-9]{10}" title="Enter a 10-digit phone number" required>
       <label for="siPass">Password</label>
-      <input id="siPass" type="password" autocomplete="current-password" required>
+      <div class="password-field">
+        <input id="siPass" type="password" autocomplete="current-password" required>
+        <button class="password-toggle" type="button" data-password-toggle="siPass" aria-label="Show password" aria-pressed="false">
+          <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.2A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a15.7 15.7 0 0 1-3.1 3.8"/><path d="M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 4-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+        </button>
+      </div>
       <button class="btn" type="submit">Sign in</button>
       <div class="links">
         <button class="link" type="button" data-go="forgot">Forgot password?</button>
-        <button class="link" type="button" data-go="signup">Create an account</button>
+        <button class="link" type="button" data-go="signup">Sign up</button>
       </div>
     </form>
 
     <form data-v="signup" hidden>
-      <h2>Begin the voyage</h2>
-      <p class="sub">Three details, then choose a password.</p>
-      <label for="suName">First name</label>
-      <input id="suName" type="text" autocomplete="given-name" maxlength="40" required>
+      <h2>Create your account</h2>
+      <p class="sub">Enter your details to get started.</p>
+      <div class="name-row">
+        <div>
+          <label for="suFirstName">First name</label>
+          <input class="name-input" id="suFirstName" type="text" autocomplete="given-name" maxlength="20" required>
+        </div>
+        <div>
+          <label for="suLastName">Last name</label>
+          <input class="name-input" id="suLastName" type="text" autocomplete="family-name" maxlength="19" required>
+        </div>
+      </div>
       <label for="suPhone">Phone number</label>
-      <input id="suPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(214) 555-0123" required>
+      <input id="suPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="20" minlength="10"
+             pattern="[0-9]{10}" title="Enter a 10-digit phone number" required>
       <label for="suDob">Date of birth</label>
       <input id="suDob" type="date" required>
-      <button class="btn" type="submit">Continue</button>
+      <p id="suAgeNote" class="small-note">An emergency contact is required for age 18 or younger, or 50 or older.</p>
+      <div id="suEmergency" hidden>
+        <label for="suContactName">Emergency contact name</label>
+        <input id="suContactName" type="text" autocomplete="off" maxlength="40">
+        <label for="suContactPhone">Emergency contact phone</label>
+        <input id="suContactPhone" type="tel" inputmode="numeric" autocomplete="off" maxlength="20" minlength="10"
+               pattern="[0-9]{10}" title="Enter a 10-digit phone number">
+      </div>
+      <label for="suPassword">Password</label>
+      <div class="password-field">
+        <input id="suPassword" type="password" autocomplete="new-password" minlength="8" maxlength="18"
+               pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{8,18}" aria-describedby="suPasswordRule" required>
+        <button class="password-toggle" type="button" data-password-toggle="suPassword" aria-label="Show password" aria-pressed="false">
+          <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.2A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a15.7 15.7 0 0 1-3.1 3.8"/><path d="M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 4-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+        </button>
+      </div>
+      <p class="small-note" id="suPasswordRule">Use 8–18 characters, including an uppercase letter, a lowercase letter, and a number.</p>
+      <label for="suPasswordConfirm">Confirm password</label>
+      <div class="password-field">
+        <input id="suPasswordConfirm" type="password" autocomplete="new-password" minlength="8" maxlength="18"
+               pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{8,18}" required>
+        <button class="password-toggle" type="button" data-password-toggle="suPasswordConfirm" aria-label="Show password" aria-pressed="false">
+          <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.2A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a15.7 15.7 0 0 1-3.1 3.8"/><path d="M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 4-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+        </button>
+      </div>
+      <p class="small-note">Before creating your account, you’ll review the privacy and consent information.</p>
+      <button class="btn" type="submit">Create account</button>
+      <button class="btn secondary-btn" type="button" data-go="signin">I already have an account</button>
+    </form>
+
+    <form data-v="consent" hidden>
+      <h2>Consent and privacy</h2>
+      <p class="sub">Please review and agree before continuing with signup.</p>
+      <fieldset class="consents">
+        <legend>Required agreements</legend>
+        <label class="consent">
+          <input id="suRiskConsent" type="checkbox" required>
+          <span>I understand Hermes is a preventive aid, not a guarantee. It may miss scams or make mistakes, so I will verify important requests independently.</span>
+        </label>
+        <label class="consent">
+          <input id="suPrivacyConsent" type="checkbox" required>
+          <span>While you are signed in, the background watcher first checks whether an incoming sender is saved in Contacts without fetching the message content. It does not read message content from saved contacts, and pauses if Contacts cannot be checked. Messages from senders not saved in Contacts are read on this Mac. A message that looks risky may be sent to Google Gemini for analysis, and that scam check is saved in MongoDB with my account.</span>
+        </label>
+      </fieldset>
+      <p class="small-note">Your consent choices and the versions you agreed to are saved with your account.</p>
+      <button class="btn" type="submit">Agree and continue</button>
       <div class="links center">
-        <button class="link" type="button" data-go="signin">I already have an account</button>
+        <button class="link" type="button" id="consentBack">Back to signup</button>
       </div>
     </form>
 
@@ -682,7 +784,8 @@
       <h2>Forgot password</h2>
       <p class="sub">Enter your phone number and date of birth to choose a new password.</p>
       <label for="fgPhone">Phone number</label>
-      <input id="fgPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(214) 555-0123" required>
+      <input id="fgPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="20" minlength="10"
+             pattern="[0-9]{10}" title="Enter a 10-digit phone number" required>
       <label for="fgDob">Date of birth</label>
       <input id="fgDob" type="date" required>
       <button class="btn" type="submit">Continue</button>
@@ -693,25 +796,27 @@
 
     <form data-v="password" hidden>
       <h2 id="pwTitle">Create a password</h2>
-      <p class="sub">At least 8 characters, with letters and numbers.</p>
+      <p class="sub">Use 8–18 characters, including an uppercase letter, a lowercase letter, and a number.</p>
       <label for="pw1">Password</label>
-      <input id="pw1" type="password" autocomplete="new-password" minlength="8" required>
-      <label for="pw2">Type it again</label>
-      <input id="pw2" type="password" autocomplete="new-password" minlength="8" required>
-      <button class="btn" type="submit" id="pwBtn">Continue</button>
-    </form>
-
-    <form data-v="contact" hidden>
-      <h2>Emergency contact</h2>
-      <p class="sub" id="ctSub"></p>
-      <label for="ctName">Their first name</label>
-      <input id="ctName" type="text" maxlength="40">
-      <label for="ctPhone">Their phone number</label>
-      <input id="ctPhone" type="tel" inputmode="tel" placeholder="(214) 555-0199">
-      <button class="btn" type="submit">Finish</button>
-      <div class="links center">
-        <button class="link" type="button" id="ctSkip">Skip for now</button>
+      <div class="password-field">
+        <input id="pw1" type="password" autocomplete="new-password" minlength="8" maxlength="18"
+               pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{8,18}" required>
+        <button class="password-toggle" type="button" data-password-toggle="pw1" aria-label="Show password" aria-pressed="false">
+          <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.2A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a15.7 15.7 0 0 1-3.1 3.8"/><path d="M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 4-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+        </button>
       </div>
+      <p class="small-note">Use 8–18 characters, including an uppercase letter, a lowercase letter, and a number.</p>
+      <label for="pw2">Type it again</label>
+      <div class="password-field">
+        <input id="pw2" type="password" autocomplete="new-password" minlength="8" maxlength="18"
+               pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{8,18}" required>
+        <button class="password-toggle" type="button" data-password-toggle="pw2" aria-label="Show password" aria-pressed="false">
+          <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.2A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a15.7 15.7 0 0 1-3.1 3.8"/><path d="M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 4-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+        </button>
+      </div>
+      <button class="btn" type="submit" id="pwBtn">Continue</button>
     </form>
 
     <form data-v="account" hidden>
@@ -721,7 +826,8 @@
       <label for="acName">Emergency contact name</label>
       <input id="acName" type="text" maxlength="40">
       <label for="acPhone">Emergency contact phone</label>
-      <input id="acPhone" type="tel" inputmode="tel" placeholder="(214) 555-0199">
+      <input id="acPhone" type="tel" inputmode="numeric" maxlength="20" minlength="10" pattern="[0-9]{10}"
+             title="Enter a 10-digit phone number">
       <p class="note" id="acNote"></p>
       <button class="btn" type="submit">Save</button>
       <div class="links">
@@ -1100,10 +1206,12 @@
   }
 
 
-  // ===== Accounts: sign in, create account, password, emergency contact =====
+  // ===== Accounts: sign in, create account, consent, password, emergency contact =====
   (function () {
     const A = $("auth"), errEl = $("authErr");
-    const flow = { phone: "", ticket: "", purpose: "", needs: false, password: "" };
+    const flow = { phone: "", ticket: "", purpose: "", needs: false, password: "",
+      consentAccepted: false, pendingUser: null,
+      firstName: "", lastName: "", dob: "", contactName: "", contactPhone: "" };
     let me = null;
     const post = (step, body) => fetch("/api/auth/" + step, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {})
@@ -1121,7 +1229,18 @@
       $("acctBtn").textContent = (user.name || "?").slice(0, 1).toUpperCase();
       A.classList.remove("on");
       A.querySelectorAll("input").forEach(i => { i.value = ""; });
+      A.querySelectorAll('input[type="checkbox"]').forEach(i => { i.checked = false; });
+      A.querySelectorAll("[data-password-toggle]").forEach(button => {
+        const input = $(button.dataset.passwordToggle);
+        input.type = "password";
+        button.classList.remove("showing");
+        button.setAttribute("aria-label", "Show password");
+        button.setAttribute("aria-pressed", "false");
+      });
       flow.password = flow.ticket = "";
+      flow.consentAccepted = false;
+      flow.pendingUser = null;
+      flow.firstName = flow.lastName = flow.dob = flow.contactName = flow.contactPhone = "";
     }
     function signedOut(hasAccounts) {
       me = null; document.body.classList.remove("signed");
@@ -1130,64 +1249,254 @@
     async function run(form, step, body) {
       const btn = form.querySelector(".btn"); btn.disabled = true; err("");
       const r = await post(step, body); btn.disabled = false;
-      if (!r.ok) err(r.error || "Something went wrong. Please try again.");
+      if (!r.ok) {
+        const message = r.error || "Something went wrong. Please try again.";
+        err(message);
+        if (step === "login") {
+          showInlineError($("siPhone"), message);
+          showInlineError($("siPass"), message);
+        } else if (step === "forgot") {
+          showInlineError($("fgPhone"), message);
+        }
+      }
       return r.ok ? r : null;
     }
-    function toPassword(r) {
-      flow.phone = r.phone; flow.ticket = r.ticket; flow.purpose = r.purpose; flow.needs = !!r.needs_contact;
-      const reset = flow.purpose === "reset";
-      $("pwTitle").textContent = reset ? "Choose a new password" : "Create a password";
-      $("pwBtn").textContent = reset ? "Save and sign in" : "Continue";
-      $("pw1").value = $("pw2").value = ""; view("password");
+    // Signed in, but the consent on the account may be missing or out of date.
+    function afterAuth(state) {
+      if (state.consent_required) showConsent("login-consent", state.user);
+      else signedIn(state.user);
     }
     const form = name => A.querySelector('form[data-v="' + name + '"]');
     const on = (name, fn) => form(name).addEventListener("submit", e => { e.preventDefault(); fn(form(name)); });
+    const inlineErrors = new WeakMap();
+    const fieldLabels = {
+      suFirstName: "first name", suLastName: "last name", suPhone: "your phone number",
+      siPhone: "your phone number", fgPhone: "your phone number",
+      suDob: "your birthday", suContactName: "your emergency contact's name",
+      suContactPhone: "a valid emergency contact phone number",
+      siPass: "your password", suPassword: "a password",
+      suPasswordConfirm: "your password again", pw1: "your password",
+      pw2: "your password again", fgDob: "your birthday",
+      acName: "your emergency contact's name", acPhone: "a valid emergency contact phone number",
+    };
+    function errorMessage(input) {
+      if (input.type === "checkbox") return "Please agree to this statement to continue.";
+      if (input.required && !input.value.trim())
+        return "Please enter " + (fieldLabels[input.id] || "this information") + ".";
+      if (input.validity.valueMissing) return "Please enter " + (fieldLabels[input.id] || "this information") + ".";
+      if (input.type === "tel" && (input.validity.patternMismatch || input.validity.tooShort))
+        return "Please enter a valid 10-digit phone number.";
+      if (input.id === "suPassword" || input.id === "suPasswordConfirm"
+          || input.id === "pw1" || input.id === "pw2") {
+        if (input.validity.tooShort || input.validity.tooLong || input.validity.patternMismatch)
+          return "Use 8–18 characters, including an uppercase letter, a lowercase letter, and a number.";
+      }
+      if (input.id === "suPasswordConfirm" && input.validity.customError)
+        return "Your passwords do not match.";
+      if (input.id === "pw2" && input.validity.customError)
+        return "Your passwords do not match.";
+      return input.validationMessage || "Please check this information.";
+    }
+    function clearInlineError(input) {
+      const error = inlineErrors.get(input);
+      if (error) error.remove();
+      inlineErrors.delete(input);
+      input.removeAttribute("aria-invalid");
+      const describedBy = (input.getAttribute("aria-describedby") || "")
+        .split(/\s+/).filter(id => id && (!error || id !== error.id));
+      if (describedBy.length) input.setAttribute("aria-describedby", describedBy.join(" "));
+      else input.removeAttribute("aria-describedby");
+      const consentLabel = input.type === "checkbox" ? input.closest(".consent") : null;
+      if (consentLabel) consentLabel.removeAttribute("aria-invalid");
+      const consents = input.type === "checkbox" ? input.closest(".consents") : null;
+      if (consents && !consents.querySelector('input[type="checkbox"][aria-invalid="true"]'))
+        consents.removeAttribute("aria-invalid");
+    }
+    function showInlineError(input, message) {
+      clearInlineError(input);
+      const error = document.createElement("p");
+      error.className = "field-error";
+      error.setAttribute("role", "alert");
+      error.textContent = message || errorMessage(input);
+      error.id = input.id + "Error";
+      input.setAttribute("aria-invalid", "true");
+      input.setAttribute("aria-describedby",
+        [input.getAttribute("aria-describedby"), error.id].filter(Boolean).join(" "));
+      const checkboxLabel = input.type === "checkbox" ? input.closest(".consent") : null;
+      const passwordField = input.closest(".password-field");
+      if (checkboxLabel) {
+        checkboxLabel.setAttribute("aria-invalid", "true");
+        checkboxLabel.insertAdjacentElement("afterend", error);
+        input.closest(".consents").setAttribute("aria-invalid", "true");
+      } else if (passwordField) {
+        passwordField.insertAdjacentElement("afterend", error);
+      } else {
+        input.insertAdjacentElement("afterend", error);
+      }
+      inlineErrors.set(input, error);
+    }
+    A.querySelectorAll("form").forEach(authForm => {
+      authForm.addEventListener("invalid", event => {
+        event.preventDefault();
+        showInlineError(event.target);
+      }, true);
+      authForm.addEventListener("input", event => {
+        if (event.target.matches("input")) clearInlineError(event.target);
+      });
+      authForm.addEventListener("change", event => {
+        if (event.target.matches("input")) clearInlineError(event.target);
+      });
+    });
+    function validatePasswordConfirmation(passwordId, confirmId) {
+      const password = $(passwordId), confirmation = $(confirmId);
+      confirmation.setCustomValidity(
+        confirmation.value && confirmation.value !== password.value
+          ? "Your passwords do not match."
+          : "");
+    }
+    $("suPassword").addEventListener("input", () =>
+      validatePasswordConfirmation("suPassword", "suPasswordConfirm"));
+    $("suPasswordConfirm").addEventListener("input", () =>
+      validatePasswordConfirmation("suPassword", "suPasswordConfirm"));
+    $("pw1").addEventListener("input", () => validatePasswordConfirmation("pw1", "pw2"));
+    $("pw2").addEventListener("input", () => validatePasswordConfirmation("pw1", "pw2"));
+    function showConsent(purpose, user) {
+      flow.purpose = purpose;
+      flow.pendingUser = user || null;
+      flow.consentAccepted = false;
+      $("suRiskConsent").checked = false;
+      $("suPrivacyConsent").checked = false;
+      view("consent");
+    }
 
     A.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => view(b.dataset.go)));
+    A.querySelectorAll("[data-password-toggle]").forEach(button => button.addEventListener("click", () => {
+      const input = $(button.dataset.passwordToggle);
+      const showing = input.type === "password";
+      input.type = showing ? "text" : "password";
+      button.classList.toggle("showing", showing);
+      button.setAttribute("aria-label", showing ? "Hide password" : "Show password");
+      button.setAttribute("aria-pressed", String(showing));
+      input.focus();
+    }));
+    ["siPhone", "suPhone", "suContactPhone", "fgPhone", "acPhone"].forEach(id => {
+      $(id).addEventListener("input", event => {
+        event.target.value = event.target.value.replace(/\D/g, "").slice(0, 10);
+      });
+    });
     $("suDob").max = $("fgDob").max = new Date().toISOString().slice(0, 10);
+    function ageOn(value) {
+      if (!value) return null;
+      const born = new Date(value + "T00:00:00");
+      if (Number.isNaN(born.getTime())) return null;
+      const today = new Date();
+      let age = today.getFullYear() - born.getFullYear();
+      if (today.getMonth() < born.getMonth()
+          || (today.getMonth() === born.getMonth() && today.getDate() < born.getDate())) age--;
+      return age;
+    }
+    function updateEmergencyFields() {
+      const age = ageOn($("suDob").value);
+      const required = age !== null && (age <= 18 || age >= 50);
+      $("suEmergency").hidden = !required;
+      $("suAgeNote").textContent = age === null
+        ? "Enter your date of birth to check whether an emergency contact is required."
+        : required
+          ? "An emergency contact is required for people age 18 or younger, or 50 or older."
+          : "An emergency contact is not required for your age.";
+      $("suContactName").required = required;
+      $("suContactPhone").required = required;
+      flow.needs = required;
+    }
+    $("suDob").addEventListener("input", updateEmergencyFields);
+    $("suContactName").addEventListener("input", updateEmergencyFields);
+    $("suContactPhone").addEventListener("input", updateEmergencyFields);
+    updateEmergencyFields();
 
     on("signin", async f => {
       const r = await run(f, "login", { phone: $("siPhone").value, password: $("siPass").value });
-      if (r) signedIn(r.state.user);
+      if (r) afterAuth(r.state);
     });
     on("signup", async f => {
-      const r = await run(f, "signup", { name: $("suName").value, phone: $("suPhone").value, dob: $("suDob").value });
-      if (r) toPassword(r);
+      const password = $("suPassword").value;
+      if (password !== $("suPasswordConfirm").value) {
+        err("The passwords do not match.");
+        return;
+      }
+      flow.firstName = $("suFirstName").value.trim();
+      flow.lastName = $("suLastName").value.trim();
+      flow.dob = $("suDob").value;
+      flow.contactName = $("suContactName").value.trim();
+      flow.contactPhone = $("suContactPhone").value.trim();
+      flow.needs = ageOn(flow.dob) <= 18 || ageOn(flow.dob) >= 50;
+      flow.password = password;
+      showConsent("signup-start");
+    });
+    $("consentBack").addEventListener("click", async () => {
+      if (flow.purpose === "login-consent") {
+        await post("logout");
+        flow.pendingUser = null;
+        flow.purpose = "";
+        view("signin");
+      } else {
+        flow.purpose = "";
+        flow.consentAccepted = false;
+        view("signup");
+      }
+    });
+    on("consent", async f => {
+      flow.consentAccepted = $("suRiskConsent").checked && $("suPrivacyConsent").checked;
+      if (!flow.consentAccepted) return err("Please agree to both consent statements to continue.");
+      if (flow.purpose === "login-consent") {
+        const r = await run(f, "consent", { risk_consent: true, privacy_consent: true });
+        if (r) signedIn(r.state.user);
+        return;
+      }
+      if (flow.purpose !== "signup-start") return err("Please start signup again.");
+      const r = await run(f, "signup", {
+        first_name: flow.firstName,
+        last_name: flow.lastName,
+        phone: $("suPhone").value,
+        dob: flow.dob,
+      });
+      if (r) {
+        // No code is sent: the account is created straight away.
+        const done = await run(f, "finish", {
+          phone: r.phone, ticket: r.ticket, password: flow.password,
+          contact_name: flow.contactName, contact_phone: flow.contactPhone,
+          risk_consent: true, privacy_consent: true,
+        });
+        if (done) signedIn(done.state.user);
+      } else {
+        const message = errEl.textContent;
+        view("signup");
+        showInlineError($("suPhone"), message);
+        err("");
+      }
     });
     on("forgot", async f => {
       const r = await run(f, "forgot", { phone: $("fgPhone").value, dob: $("fgDob").value });
-      if (r) toPassword(r);
+      if (!r) return;
+      flow.phone = r.phone; flow.ticket = r.ticket; flow.purpose = "reset";
+      $("pwTitle").textContent = "Choose a new password";
+      $("pwBtn").textContent = "Save and sign in";
+      $("pw1").value = $("pw2").value = "";
+      view("password");
     });
     on("password", async f => {
       const a = $("pw1").value, b = $("pw2").value;
       if (a !== b) return err("The two passwords do not match.");
-      if (a.length < 8 || !/[A-Za-z]/.test(a) || !/\d/.test(a)) return err("Use at least 8 characters, with letters and numbers.");
-      if (flow.purpose === "reset") {
-        const r = await run(f, "reset", { phone: flow.phone, ticket: flow.ticket, password: a });
-        if (r) signedIn(r.state.user);
-        return;
-      }
-      flow.password = a;
-      $("ctSub").textContent = flow.needs
-        ? "Required for your age. If {{NAME}} finds a scam, this person is told."
-        : "Optional. If {{NAME}} finds a scam, this person is told.";
-      $("ctSkip").hidden = flow.needs;
-      view("contact");
+      if (a.length < 8 || a.length > 18 || !/[A-Z]/.test(a) || !/[a-z]/.test(a) || !/\d/.test(a))
+        return err("Use 8–18 characters, including an uppercase letter, a lowercase letter, and a number.");
+      const r = await run(f, "reset", { phone: flow.phone, ticket: flow.ticket, password: a });
+      if (r) afterAuth(r.state);
     });
-    async function finish(name, phone) {
-      const r = await run(form("contact"), "finish", {
-        phone: flow.phone, ticket: flow.ticket, password: flow.password, contact_name: name, contact_phone: phone });
-      if (r) signedIn(r.state.user);
-    }
-    on("contact", () => finish($("ctName").value, $("ctPhone").value));
-    $("ctSkip").addEventListener("click", () => finish("", ""));
 
     $("acctBtn").addEventListener("click", () => {
       if (!me) return;
       $("acWho").textContent = me.name + " · " + me.phone_masked;
       $("acSub").textContent = "{{NAME}} watches new messages from numbers not saved in your Contacts.";
       $("acName").value = me.contact_name || ""; $("acPhone").value = "";
-      $("acPhone").placeholder = me.contact_masked || "(214) 555-0199";
       $("acNote").textContent = me.contact_masked
         ? "Alerts go to " + me.contact_name + " at " + me.contact_masked + ". Enter a number only to change it."
         : (me.needs_contact ? "An emergency contact is required for your age." : "No emergency contact yet. Alerts stay on this Mac.");
@@ -1204,8 +1513,17 @@
     if (demo && demo !== "signin" && demo !== "signup") return;
     if (demo) return view(demo);
     fetch("/api/auth/state").then(r => r.json())
-      .then(s => s.signed_in ? signedIn(s.user) : signedOut(s.has_accounts))
-      .catch(() => {});
+      .then(s => {
+        if (s.storage_error) {
+          signedOut(false);
+          err(s.storage_error);
+        } else if (s.signed_in) afterAuth(s);
+        else signedOut(s.has_accounts);
+      })
+      .catch(() => {
+        signedOut(false);
+        err("Hermes could not check account storage. Please check your connection and try again.");
+      });
   })();
 
   // ===== Keep the dagger cursor after the pointer leaves the window and returns =====

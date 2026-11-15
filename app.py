@@ -96,13 +96,16 @@ def show(request: Request):
 
 
 class AuthRequest(BaseModel):
-    name: str = ""
+    first_name: str = ""
+    last_name: str = ""
     phone: str = ""
     dob: str = ""
     ticket: str = ""
     password: str = ""
     contact_name: str = ""
     contact_phone: str = ""
+    risk_consent: bool = False
+    privacy_consent: bool = False
 
 
 def _local_only(request):
@@ -111,10 +114,12 @@ def _local_only(request):
 
 
 _AUTH_STEPS = {
-    "signup": lambda r: auth.start_signup(r.name, r.phone, r.dob),
+    "signup": lambda r: auth.start_signup(r.first_name, r.last_name, r.phone, r.dob),
     "finish": lambda r: auth.finish_signup(r.phone, r.ticket, r.password,
-                                           r.contact_name, r.contact_phone),
+                                           r.contact_name, r.contact_phone,
+                                           r.risk_consent, r.privacy_consent),
     "login":  lambda r: auth.login(r.phone, r.password),
+    "consent": lambda r: auth.accept_consent(r.risk_consent, r.privacy_consent),
     "forgot": lambda r: auth.start_reset(r.phone, r.dob),
     "reset":  lambda r: auth.reset_password(r.phone, r.ticket, r.password),
     "contact": lambda r: auth.set_contact(r.contact_name, r.contact_phone),
@@ -362,7 +367,7 @@ def open_window():
     import socket
     import time
     background = "--show" not in sys.argv
-    start_hidden = background and bool(auth.current())   # signed out: show the sign-in screen
+    start_hidden = background and bool(auth.current())   # consent pending also shows the window   # signed out: show the sign-in screen
     url = "http://127.0.0.1:%d/" % config.PORT
     for _ in range(50):                  # wait up to 5 s for the server to be ready
         try:

@@ -111,17 +111,26 @@ def judge(m):
 
 
 def handle_message(m):
-    """Decide what to do with one new incoming message."""
+    """Decide what to do with one new incoming message. `m` has the sender only;
+    the content is fetched here, and only for senders not saved in Contacts."""
     global _told_contacts
-    sender, body = m["sender"], m["body"]
-    if not sender or not body:
+    sender = m["sender"]
+    if not sender:
         return None
     known = mac.in_contacts(sender)
     if known:
-        return None                       # saved in Contacts: not watched
-    if known is None and not _told_contacts:
-        _told_contacts = True
-        log("guard: Contacts cannot be read, so every sender is treated as unknown.")
+        return None                       # saved in Contacts: content is never read
+    if known is None:
+        if not _told_contacts:
+            _told_contacts = True
+            log("guard: Contacts cannot be read, so the guard is paused (no messages are read).")
+        return None
+    _told_contacts = False
+    if "body" not in m:
+        m["body"] = mac.message_body(m["id"])
+    body = m["body"]
+    if not body:
+        return None
     if not is_risky(body):
         log("guard: ordinary message from unsaved number %s. Staying quiet." % _who(sender))
         return None
