@@ -463,7 +463,6 @@
   .auth .field-error::before { content:"!"; flex:0 0 16px; width:16px; height:16px; margin-top:1px;
     border:1.5px solid currentColor; border-radius:50%; font-size:11px; font-weight:700;
     line-height:14px; text-align:center; }
-  .auth input.code { text-align: center; font-size: 26px; letter-spacing: .42em; padding-left: .42em; font-variant-numeric: tabular-nums; }
   .auth .name-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .auth .name-row label { margin-top: 8px; }
   .auth input.name-input { height: 48px; font-size: 16px; }
@@ -530,7 +529,6 @@
     transition: background .25s, border-color .25s;
   }
   .auth label.pick:hover, .auth label.pick.has { background: #fff; border-color: var(--navy-soft); border-style: solid; }
-  .auth input.code { text-align: center; font-size: 26px; letter-spacing: .42em; padding-left: .42em; font-variant-numeric: tabular-nums; }
   .auth .ok-note { color: #2f6b52; }
   .tell {
     display: block; margin: 0 auto 12px; padding: 12px 18px; max-width: 340px; border-radius: 22px;
@@ -748,9 +746,6 @@
       <label for="suPhone">Phone number</label>
       <input id="suPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="20" minlength="10"
              pattern="[0-9]{10}" title="Enter a 10-digit phone number" required>
-      <label for="suEmail">Email</label>
-      <input id="suEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" required>
-      <p class="small-note">We email a 6-digit code to confirm it is you.</p>
       <label for="suDob">Date of birth</label>
       <input id="suDob" type="date" required>
       <p id="suAgeNote" class="small-note">An emergency contact is required for age 18 or younger, or 50 or older.</p>
@@ -806,39 +801,17 @@
       </div>
     </form>
 
-    <form data-v="forgot" hidden>
+    <form data-v="forgot" hidden novalidate>
       <h2>Forgot password</h2>
-      <p class="sub">Enter your phone number. We will email a code to the address on your account.</p>
+      <p class="sub">Enter your phone number and the date of birth on your account to choose a new password.</p>
       <label for="fgPhone">Phone number</label>
       <input id="fgPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="20" minlength="10"
              pattern="[0-9]{10}" title="Enter a 10-digit phone number" required>
-      <button class="btn" type="submit">Email me a code</button>
+      <label for="fgDob">Date of birth</label>
+      <input id="fgDob" type="date" required>
+      <button class="btn" type="submit">Continue</button>
       <div class="links center">
         <button class="link" type="button" data-go="signin">Back to sign in</button>
-      </div>
-    </form>
-
-    <form data-v="code" hidden novalidate>
-      <h2>Check your email</h2>
-      <p class="sub" id="codeSub"></p>
-      <label for="codeIn">6-digit code</label>
-      <input id="codeIn" class="code" type="text" inputmode="numeric" autocomplete="one-time-code"
-             maxlength="6" pattern="[0-9]{6}" title="Enter the 6-digit code" required>
-      <button class="btn" type="submit">Verify</button>
-      <div class="links">
-        <button class="link" type="button" id="resendBtn" disabled>Send a new code</button>
-        <button class="link" type="button" id="codeBack">Go back</button>
-      </div>
-    </form>
-
-    <form data-v="email" hidden>
-      <h2>Add your email</h2>
-      <p class="sub">{{NAME}} now needs an email address on your account. It is used to confirm it is you and to reset your password.</p>
-      <label for="emIn">Email</label>
-      <input id="emIn" type="email" inputmode="email" autocomplete="email" maxlength="254" required>
-      <button class="btn" type="submit">Email me a code</button>
-      <div class="links center">
-        <button class="link" type="button" id="emOut">Sign out</button>
       </div>
     </form>
 
@@ -1330,40 +1303,21 @@
           showInlineError($("siPhone"), message);
           showInlineError($("siPass"), message);
         } else if (step === "forgot") {
-          showInlineError($("fgPhone"), message);
-        } else if (step === "verify" || step === "forgot_verify" || step === "email_verify") {
-          showInlineError($("codeIn"), message);
+          showInlineError($(r.field === "phone" ? "fgPhone" : "fgDob"), message);
         } else if (step === "reset" && r.field === "password") {
           showInlineError($("pw1"), message);
-        } else if (step === "email") {
-          showInlineError($("emIn"), message);
         }
       }
       return r.ok ? r : null;
     }
     // Signed in, but the consent on the account may be missing or out of date.
     function afterAuth(state) {
-      if (state.email_required) { $("emIn").value = ""; view("email"); }
-      else if (state.consent_required) showConsent("login-consent", state.user);
+      if (state.consent_required) showConsent("login-consent", state.user);
       else signedIn(state.user);
-    }
-    // ----- the emailed code: used for sign-up, forgotten password and adding an email -----
-    let tick = null;
-    function countdown(seconds) {
-      const b = $("resendBtn"); let left = seconds; clearInterval(tick);
-      const paint = () => { b.disabled = left > 0; b.textContent = left > 0 ? "New code in " + left + "s" : "Send a new code"; };
-      paint(); tick = setInterval(() => { left -= 1; paint(); if (left <= 0) clearInterval(tick); }, 1000);
-    }
-    function toCode(r) {
-      flow.phone = r.phone; flow.codeFor = r.purpose;
-      $("codeSub").textContent = r.purpose === "reset"
-        ? "If this number has an account, a 6-digit code was emailed to its address. It is good for 10 minutes."
-        : "Enter the 6-digit code we emailed to " + r.email_masked + ". It is good for 10 minutes.";
-      $("codeIn").value = ""; view("code"); countdown(r.resend_in || 30);
     }
     // Where the server's "field" belongs on the sign-up form.
     const fieldInputs = { first_name: "suFirstName", last_name: "suLastName", phone: "suPhone",
-      email: "suEmail", dob: "suDob", password: "suPassword",
+      dob: "suDob", password: "suPassword",
       contact_name: "suContactName", contact_phone: "suContactPhone" };
     const form = name => A.querySelector('form[data-v="' + name + '"]');
     const on = (name, fn) => form(name).addEventListener("submit", e => { e.preventDefault(); fn(form(name)); });
@@ -1371,7 +1325,7 @@
     const fieldLabels = {
       suFirstName: "first name", suLastName: "last name", suPhone: "your phone number",
       siPhone: "your phone number", fgPhone: "your phone number",
-      suEmail: "your email address", emIn: "your email address", codeIn: "the 6-digit code",
+      fgDob: "your birthday",
       suDob: "your birthday", suContactName: "your emergency contact's name",
       suContactPhone: "a valid emergency contact phone number",
       siPass: "your password", suPassword: "a password",
@@ -1484,7 +1438,7 @@
         event.target.value = event.target.value.replace(/\D/g, "").slice(0, 10);
       });
     });
-    $("suDob").max = new Date().toISOString().slice(0, 10);
+    $("suDob").max = $("fgDob").max = new Date().toISOString().slice(0, 10);
     function ageOn(value) {
       if (!value) return null;
       const born = new Date(value + "T00:00:00");
@@ -1529,7 +1483,6 @@
       need("suFirstName", v("suFirstName"), "Please enter first name.");
       need("suLastName", v("suLastName"), "Please enter last name.");
       need("suPhone", /^\d{10}$/.test(v("suPhone")), "Please enter a valid 10-digit phone number.");
-      need("suEmail", /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v("suEmail")), "Please enter a valid email address.");
       need("suDob", age !== null && age >= 0, "Please enter your birthday.");
       if (required) {
         need("suContactName", v("suContactName"), "Please enter your emergency contact's name.");
@@ -1545,7 +1498,6 @@
       }
       flow.firstName = v("suFirstName");
       flow.lastName = v("suLastName");
-      flow.email = v("suEmail");
       flow.dob = $("suDob").value;
       flow.contactName = required ? v("suContactName") : "";
       flow.contactPhone = required ? v("suContactPhone") : "";
@@ -1576,55 +1528,27 @@
       if (flow.purpose !== "signup-start") return err("Please start signup again.");
       const r = await run(f, "signup", {
         first_name: flow.firstName, last_name: flow.lastName, phone: $("suPhone").value,
-        email: flow.email, dob: flow.dob, password: flow.password,
+        dob: flow.dob, password: flow.password,
         contact_name: flow.contactName, contact_phone: flow.contactPhone,
         risk_consent: true, privacy_consent: true,
       });
-      if (r) toCode(r);            // the account is created only after the emailed code
+      if (r) signedIn(r.state.user);          // the account is created straight away
       else {
         const message = errEl.textContent, input = fieldInputs[(run.last || {}).field];
         if (input) { view("signup"); showInlineError($(input), message); err(""); }
       }
     });
     on("forgot", async f => {
-      const r = await run(f, "forgot", { phone: $("fgPhone").value });
-      if (r) toCode(r);
-    });
-    on("email", async f => {
-      const r = await run(f, "email", { email: $("emIn").value });
-      if (r) toCode(r);
-    });
-    $("emOut").addEventListener("click", async () => { await post("logout"); signedOut(true); });
-    $("codeIn").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); });
-    on("code", async f => {
-      const code = $("codeIn").value;
-      if (!/^\d{6}$/.test(code)) return showInlineError($("codeIn"), "Please enter the 6-digit code.");
-      if (flow.codeFor === "reset") {
-        const r = await run(f, "forgot_verify", { phone: flow.phone, code });
-        if (!r) return;
-        clearInterval(tick);
-        flow.ticket = r.ticket;
-        $("pwTitle").textContent = "Choose a new password";
-        $("pwBtn").textContent = "Save password";
-        $("pw1").value = $("pw2").value = "";
-        view("password");
-      } else if (flow.codeFor === "email") {
-        const r = await run(f, "email_verify", { code });
-        if (r) { clearInterval(tick); afterAuth(r.state); }
-      } else {
-        const r = await run(f, "verify", { phone: flow.phone, code });
-        if (r) { clearInterval(tick); signedIn(r.state.user); }
-      }
-    });
-    $("resendBtn").addEventListener("click", async () => {
-      $("resendBtn").disabled = true;
-      const r = await post("resend", { phone: flow.phone });
-      if (r.ok) { err("A new code is on its way."); countdown(r.resend_in || 30); }
-      else { err(r.error); $("resendBtn").disabled = false; }
-    });
-    $("codeBack").addEventListener("click", () => {
-      clearInterval(tick);
-      view(flow.codeFor === "reset" ? "forgot" : flow.codeFor === "email" ? "email" : "signup");
+      if (!/^\d{10}$/.test($("fgPhone").value.trim()))
+        return showInlineError($("fgPhone"), "Please enter a valid 10-digit phone number.");
+      if (!$("fgDob").value) return showInlineError($("fgDob"), "Please enter your birthday.");
+      const r = await run(f, "forgot", { phone: $("fgPhone").value, dob: $("fgDob").value });
+      if (!r) return;
+      flow.phone = r.phone; flow.ticket = r.ticket;
+      $("pwTitle").textContent = "Choose a new password";
+      $("pwBtn").textContent = "Save password";
+      $("pw1").value = $("pw2").value = "";
+      view("password");
     });
     on("password", async f => {
       const a = $("pw1").value, b = $("pw2").value;
@@ -1699,7 +1623,7 @@
 
     $("acctBtn").addEventListener("click", () => {
       if (!me) return;
-      $("acWho").textContent = me.name + " · " + me.phone_masked + (me.email_masked ? " · " + me.email_masked : "");
+      $("acWho").textContent = me.name + " · " + me.phone_masked;
       $("acSub").textContent = WEB
         ? "Swipe on the main screen to check a screenshot or a pasted message."
         : "{{NAME}} watches new messages from numbers not saved in your Contacts.";

@@ -1,11 +1,10 @@
-"""Unit tests for the background guard, the verdict safety net and the mailer."""
+"""Unit tests for the background guard and the verdict safety net."""
 import unittest
 
 from tests import helper
 from tests.helper import auth, mac
 
 import checker
-import mailer
 import watcher
 
 UNKNOWN, SAVED = "+16825550142", "+12145550199"
@@ -122,49 +121,6 @@ class VerdictSafetyNet(unittest.TestCase):
             self.assertFalse(checker._is_trusted_link(url), url)
         for url in ("https://youtube.com/watch?v=1", "https://www.amazon.com/dp/1", "https://m.youtube.com/x"):
             self.assertTrue(checker._is_trusted_link(url), url)
-
-
-class Mailer(unittest.TestCase):
-    def test_email_contains_the_code_and_goes_to_the_address(self):
-        sent = {}
-
-        class Reply:
-            status_code = 200
-            def json(self):
-                return {"id": "1"}
-
-        def post(url, headers=None, json=None, timeout=None):
-            sent.update(url=url, headers=headers, json=json)
-            return Reply()
-        keep = (mailer.requests.post, mailer.config.RESEND_API_KEY, mailer.config.EMAIL_DEV_CODES)
-        mailer.requests.post, mailer.config.RESEND_API_KEY, mailer.config.EMAIL_DEV_CODES = post, "re_test", False
-        try:
-            mailer.real_send_code("ana@example.com", "424242", "signup")
-        finally:
-            mailer.requests.post, mailer.config.RESEND_API_KEY, mailer.config.EMAIL_DEV_CODES = keep
-        self.assertEqual(sent["url"], "https://api.resend.com/emails")
-        self.assertEqual(sent["headers"]["Authorization"], "Bearer re_test")
-        self.assertEqual(sent["json"]["to"], ["ana@example.com"])
-        self.assertIn("424242", sent["json"]["text"])
-        self.assertIn("424242", sent["json"]["subject"])
-
-    def test_failure_or_missing_set_up_raises(self):
-        class Reply:
-            status_code = 403
-            def json(self):
-                return {"message": "domain not verified"}
-        keep = (mailer.requests.post, mailer.config.RESEND_API_KEY, mailer.config.EMAIL_DEV_CODES)
-        try:
-            mailer.config.EMAIL_DEV_CODES = False
-            mailer.config.RESEND_API_KEY = ""
-            with self.assertRaises(mailer.MailError):
-                mailer.real_send_code("ana@example.com", "424242", "signup")
-            mailer.config.RESEND_API_KEY = "re_test"
-            mailer.requests.post = lambda *a, **k: Reply()
-            with self.assertRaises(mailer.MailError):
-                mailer.real_send_code("ana@example.com", "424242", "signup")
-        finally:
-            mailer.requests.post, mailer.config.RESEND_API_KEY, mailer.config.EMAIL_DEV_CODES = keep
 
 
 if __name__ == "__main__":

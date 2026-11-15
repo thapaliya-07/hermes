@@ -1,11 +1,11 @@
 """Integration tests for the hosted site (server.py): real HTTP requests through the
-whole stack, with only the outside world faked (email, Gemini, database)."""
+whole stack, with only the outside world faked (Gemini, database)."""
 import unittest
 
 from fastapi.testclient import TestClient
 
 from tests import helper
-from tests.helper import last_code, outbox, person, wrong
+from tests.helper import person
 
 import checker
 import server
@@ -38,8 +38,6 @@ def sign_up(client, **changes):
     p = person(**changes)
     out = step(client, "signup", **p)
     assert out["ok"], out
-    out = step(client, "verify", phone=p["phone"], code=last_code(p["email"].lower()))
-    assert out["ok"], out
     return p
 
 
@@ -67,12 +65,8 @@ class Web(unittest.TestCase):
         self.assertEqual(self.c.post("/api/auth/nope", json={}).status_code, 404)
 
     # ----- sign-up -----
-    def test_sign_up_with_email_code_then_stays_signed_in(self):
+    def test_sign_up_then_stays_signed_in(self):
         out = step(self.c, "signup", **person())
-        self.assertTrue(out["ok"])
-        self.assertEqual(out["email_masked"], "a•••@example.com")
-        self.assertFalse(self.state()["signed_in"], "not signed in before the code is entered")
-        out = step(self.c, "verify", phone="2145550100", code=last_code())
         self.assertTrue(out["ok"] and out["state"]["signed_in"])
         self.assertEqual(out["state"]["user"]["name"], "Ana Diaz")
         self.assertTrue(self.state()["signed_in"])
@@ -80,31 +74,22 @@ class Web(unittest.TestCase):
     def test_seven_character_password_is_refused_by_the_server(self):
         out = step(self.c, "signup", **person(password="Abcde1x"))
         self.assertEqual((out["ok"], out["field"]), (False, "password"))
-        self.assertEqual(outbox, [])
+        self.assertFalse(self.state()["signed_in"])
+        self.assertFalse(step(self.c, "login", phone="2145550100", password="Abcde1x")["ok"])
 
     def test_bad_fields_come_back_with_the_field_name(self):
-        for field, value in (("email", "nope"), ("phone", "12"), ("last_name", ""),
-                             ("contact_phone", ""), ("dob", "")):
+        for field, value in (("phone", "12"), ("last_name", ""), ("contact_phone", ""), ("dob", "")):
             out = step(self.c, "signup", **person(**{field: value}))
             self.assertEqual((out["ok"], out["field"]), (False, field), out)
+            self.assertFalse(self.state()["signed_in"])
 
-    def test_wrong_code_does_not_create_an_account(self):
-        step(self.c, "signup", **person())
-        out = step(self.c, "verify", phone="2145550100", code=wrong(last_code()))
-        self.assertEqual((out["ok"], out["field"]), (False, "code"))
-        self.assertFalse(self.state()["signed_in"])
-        self.assertFalse(step(self.c, "login", phone="2145550100", password="Passw0rdd")["ok"])
-
-    def test_code_is_never_sent_back_to_the_browser(self):
-        r = self.c.post("/api/auth/signup", json=person())
-        self.assertNotIn(last_code(), r.text)
+    def test_removed_code_steps_do_not_exist(self):
+        for name in ("verify", "resend", "forgot_verify", "email", "email_verify", "finish"):
+            self.assertEqual(self.c.post("/api/auth/" + name, json={}).status_code, 404, name)
 
     # ----- sessions -----
     def test_cookie_is_http_only_and_secure_behind_https(self):
-        p = person()
-        step(self.c, "signup", **p)
-        r = self.c.post("/api/auth/verify", json={"phone": p["phone"], "code": last_code()},
-                        headers={"x-forwarded-proto": "https"})
+        r = self.c.post("/api/auth/signup", json=person(), headers={"x-forwarded-proto": "https"})
         cookie = r.headers["set-cookie"].lower()
         self.assertIn("httponly", cookie)
         self.assertIn("secure", cookie)
@@ -144,18 +129,16 @@ class Web(unittest.TestCase):
         self.assertIn("many", out["error"].lower())
 
     # ----- forgot password -----
-    def test_forgot_password_needs_the_email_code_and_never_signs_in(self):
+    def test_forgot_password_needs_the_right_details_and_never_signs_in(self):
         sign_up(self.c)
         step(self.c, "logout")
-        del outbox[:]
-        self.assertTrue(step(self.c, "forgot", phone="2145550100")["ok"])
-        self.assertFalse(self.state()["signed_in"])
-        # no code, wrong code, made-up ticket: nothing changes
+        # nothing proved, wrong date, made-up ticket: nothing changes
         self.assertFalse(step(self.c, "reset", phone="2145550100", ticket="", password="Newpass123")["ok"])
-        self.assertFalse(step(self.c, "forgot_verify", phone="2145550100", code=wrong(last_code()))["ok"])
+        self.assertFalse(step(self.c, "forgot", phone="2145550100", dob="1951-01-01")["ok"])
         self.assertFalse(step(self.c, "reset", phone="2145550100", ticket="guess", password="Newpass123")["ok"])
-        out = step(self.c, "forgot_verify", phone="2145550100", code=last_code())
+        out = step(self.c, "forgot", phone="2145550100", dob="1950-03-02")
         self.assertTrue(out["ok"])
+        self.assertFalse(out["state"]["signed_in"])
         self.assertFalse(self.state()["signed_in"])
         short = step(self.c, "reset", phone="2145550100", ticket=out["ticket"], password="Abcde1x")
         self.assertEqual((short["ok"], short["field"]), (False, "password"))
@@ -163,25 +146,24 @@ class Web(unittest.TestCase):
         self.assertTrue(done["ok"])
         self.assertFalse(done["state"]["signed_in"], "resetting the password must not sign in")
         self.assertFalse(self.state()["signed_in"])
+        self.assertEqual(self.c.post("/api/check", json={"text": "hi"}).status_code, 401)
         self.assertFalse(step(self.c, "login", phone="2145550100", password="Passw0rdd")["ok"])
         self.assertTrue(step(self.c, "login", phone="2145550100", password="Newpass123")["ok"])
 
-    def test_forgot_password_for_unknown_number_looks_the_same(self):
+    def test_forgot_password_for_unknown_number_looks_like_a_wrong_date(self):
         sign_up(self.c)
         step(self.c, "logout")
-        del outbox[:]
-        a = step(self.c, "forgot", phone="2145550100")
-        b = step(self.c, "forgot", phone="2145550111")
-        self.assertEqual((a["ok"], set(a)), (b["ok"], set(b)))
-        self.assertEqual(len(outbox), 1)
+        a = step(self.c, "forgot", phone="2145550100", dob="1951-01-01")
+        b = step(self.c, "forgot", phone="2145550111", dob="1950-03-02")
+        self.assertEqual((a["ok"], a["error"]), (b["ok"], b["error"]))
 
     # ----- the check -----
     def test_check_needs_sign_in(self):
         self.assertEqual(self.c.post("/api/check", json={"text": "hi"}).status_code, 401)
         self.assertEqual(asked, [])
 
-    def test_check_needs_a_verified_account(self):
-        step(self.c, "signup", **person())           # code not entered yet
+    def test_failed_sign_up_cannot_check(self):
+        step(self.c, "signup", **person(password="Abcde1x"))
         self.assertEqual(self.c.post("/api/check", json={"text": "hi"}).status_code, 401)
 
     def test_scam_text_returns_verdict_and_a_message_for_the_contact(self):

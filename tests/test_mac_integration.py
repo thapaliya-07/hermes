@@ -5,7 +5,7 @@ import unittest
 from fastapi.testclient import TestClient
 
 from tests import helper
-from tests.helper import auth, last_code, person
+from tests.helper import auth, person
 
 import app as mac_app
 
@@ -35,14 +35,11 @@ class MacApp(unittest.TestCase):
     def test_swipe_needs_sign_in(self):
         self.assertEqual(self.c.post("/ask").status_code, 401)
 
-    def test_sign_up_with_code_then_alerts_go_to_the_contact(self):
-        p = person()
-        self.assertTrue(step(self.c, "signup", **p)["ok"])
-        self.assertFalse(self.c.get("/api/auth/state").json()["signed_in"])
-        out = step(self.c, "verify", phone=p["phone"], code=last_code())
-        self.assertTrue(out["state"]["signed_in"])
+    def test_sign_up_then_alerts_go_to_the_contact(self):
+        out = step(self.c, "signup", **person())
+        self.assertTrue(out["ok"] and out["state"]["signed_in"])
         self.assertEqual(helper.config.FAMILY_PHONE, "+12145550199")
-        self.assertEqual(auth.current()["email"], "ana@example.com")
+        self.assertEqual(auth.current()["name"], "Ana Diaz")
 
     def test_short_password_is_refused(self):
         out = step(self.c, "signup", **person(password="Abcde1x"))
@@ -51,8 +48,8 @@ class MacApp(unittest.TestCase):
     def test_forgot_password_does_not_sign_in_on_the_mac(self):
         helper.make_account()
         auth.logout()
-        step(self.c, "forgot", phone="2145550100")
-        t = step(self.c, "forgot_verify", phone="2145550100", code=last_code())["ticket"]
+        self.assertFalse(step(self.c, "forgot", phone="2145550100", dob="1951-01-01")["ok"])
+        t = step(self.c, "forgot", phone="2145550100", dob="1950-03-02")["ticket"]
         done = step(self.c, "reset", phone="2145550100", ticket=t, password="Newpass123")
         self.assertTrue(done["ok"])
         self.assertFalse(done["state"]["signed_in"])
