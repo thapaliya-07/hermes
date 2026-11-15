@@ -337,7 +337,8 @@ def open_window():
     import time
     background = "--show" not in sys.argv
     start_hidden = background and bool(auth.current())   # consent pending also shows the window   # signed out: show the sign-in screen
-    url = "http://127.0.0.1:%d/" % config.PORT
+    # Cache-bust so an old webview never keeps the removed "Add your email" screen.
+    url = "http://127.0.0.1:%d/?v=no-email" % config.PORT
     for _ in range(50):                  # wait up to 5 s for the server to be ready
         try:
             socket.create_connection(("127.0.0.1", config.PORT), timeout=0.2).close()
