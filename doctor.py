@@ -7,9 +7,6 @@ print("\n--- doctor ---")
 t = mac.latest_text()
 print("Latest text :", ("OK, from %s, %d min ago: %r" % (t["sender"], t["minutes_ago"], t["body"][:60])) if t
       else "NOT READABLE  -> give this app Full Disk Access")
-e = mac.latest_email()
-print("Latest email:", ("OK, from %s: %r" % (e["sender"], e["subject"][:60])) if e
-      else "none  -> open Mail.app (and allow the Automation prompt)")
 s = mac.screenshot()
 print("Screenshot  :", ("OK, %d KB" % (len(s) // 1024)) if s
       else "NOT ALLOWED  -> give this app Screen Recording")

@@ -59,7 +59,7 @@ def idle_later(seconds=12):
 
 class Verdict(BaseModel):
     verdict: Literal["SAFE", "SUSPICIOUS", "SCAM"]
-    item: Literal["text", "email", "screen"]
+    item: Literal["text", "screen"]
     sender: str
     headline: str
     reason: str
@@ -79,10 +79,10 @@ Messages that begin "{name} alert", "{name} check-in" or "{name} FYI" are your o
 her family. Never judge those; ignore them. If the screenshot shows your own small "{name}"
 window, ignore that window too.
 
-You are given what she asked, plus some of: her latest incoming text message, her latest
-email, and a screenshot of her screen. First decide WHICH ONE item she means (use her words:
-"text", "message", "email", "this", "on my screen"; if unclear, pick the most recent item or
-what is clearly visible on screen). Then judge only that item.
+You are given what she asked, plus some of: her latest incoming text message, and a
+screenshot of her screen. First decide WHICH ONE item she means (use her words: "text",
+"message", "this", "on my screen"; if unclear, pick the most recent text or what is clearly
+visible on screen). Then judge only that item. Do not ask her about email.
 
 If a "Sender status" line is given, use it: KNOWN means she has written to this person
 before; UNKNOWN means she never has. For an ordinary, friendly message from an UNKNOWN
@@ -151,7 +151,8 @@ If it looks like impersonation of family, say so plainly. Do not treat a familia
 voice as proof of identity.
 
 Fill the fields:
-- item: "text", "email" or "screen" (the one you judged).
+- item: "text" or "screen" (the one you judged). Use "text" for SMS/iMessage; "screen" for
+  what is visible. Never ask her to open or check email.
 - sender: who it is from, as shown (name, number or address). "unknown" if not visible.
 - headline: at most 6 words, the answer first.
 - reason: one short plain sentence for the screen/family log (not spoken). Name the concrete
@@ -237,6 +238,8 @@ def _sentence(s):
 
 def tidy(r):
     """Keep spoken lines short: answer + what to do. Reason stays on-screen/log only."""
+    if r.get("item") == "email":
+        r["item"] = "text"   # we no longer judge Mail; coerce legacy/model slips
     for k in ("headline", "reason", "action", "speech"):
         v = _sentence(r.get(k))
         for pat, plain in _PLAIN:
@@ -775,15 +778,13 @@ def mac_check(question="", speak=True, before_speaking=None):
     shot = mac.screenshot()
     if ui_pop:
         ui_pop()                   # then pop up in front so she can see the answer
-    t, e = mac.latest_text(), mac.latest_email()
-    text = email = None
+    t = mac.latest_text()
+    text = None
     if t:
         text = "From: %s\nSender status: %s\nReceived: %d minutes ago\n\n%s" % (
             t["sender"], mac.sender_status(t), t["minutes_ago"], t["body"])
-    if e:
-        email = "From: %s\nSubject: %s\n\n%s" % (e["sender"], e["subject"], e["body"])
-    log("context: text=%s email=%s screenshot=%s" % (bool(t), bool(e), bool(shot)))
-    r = run_check("mac", question, text=text, email=email, image_bytes=shot)
+    log("context: text=%s screenshot=%s" % (bool(t), bool(shot)))
+    r = run_check("mac", question, text=text, email=None, image_bytes=shot)
     log("verdict:", r["verdict"], "|", r["speech"])
     if before_speaking:
         before_speaking()          # let "I'm here. Let me take a look." finish

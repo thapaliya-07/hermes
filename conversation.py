@@ -268,39 +268,29 @@ def run_message_check(session: dict, question: str, speak: bool = True,
         shot = mac.screenshot()
     if checker.ui_pop:
         checker.ui_pop()
-    t, e = mac.latest_text(), mac.latest_email()
-    text = email = None
+    t = mac.latest_text()
+    text = None
     body_for_memory = ""
     if t:
         text = "From: %s\nSender status: %s\nReceived: %d minutes ago\n\n%s" % (
             t["sender"], mac.sender_status(t), t["minutes_ago"], t["body"])
         body_for_memory = t["body"]
-    if e:
-        email = "From: %s\nSubject: %s\n\n%s" % (e["sender"], e["subject"], e["body"])
-        if not body_for_memory:
-            body_for_memory = "%s\n%s" % (e["subject"], e["body"])
     # Judge what she asked about. "My screen / this / notification" means the screenshot,
     # not whichever text happened to arrive last.
     q = (question or "").lower()
     names_text = bool(re.search(r"\b(text|texts|message|messages|messi|sms|imessage)\b", q))
-    names_email = bool(re.search(r"\b(e-?mail|emails|mail|inbox)\b", q))
     names_screen = bool(re.search(r"\b(screen|display|notification|pop-?up|window|page|website|"
                                   r"this|look at|looking at|read)\b", q))
     if shot:
-        if names_screen and not names_text and not names_email:
-            text = email = None                      # screen only
-        else:
-            if names_text and not names_email:
-                email = None
-            if names_email and not names_text:
-                text = None
+        if names_screen and not names_text:
+            text = None                              # screen only
+        elif text and not names_text and t and t["minutes_ago"] > 30:
             # an old text she did not mention is not what is in front of her
-            if text and not names_text and t and t["minutes_ago"] > 30:
-                text = None
-    log("conversation check: text=%s email=%s shot=%s" % (bool(text), bool(email), bool(shot)))
+            text = None
+    log("conversation check: text=%s shot=%s" % (bool(text), bool(shot)))
 
     # Step 2: if nothing to read, ask calmly — do not talk about scams yet.
-    if not (text or email or shot) and not _has_enough_story(question):
+    if not (text or shot) and not _has_enough_story(question):
         reply = ("I don't see a message yet. Open the text, then ask me to check it.")
         session["awaiting"] = "more_context"
         return {"verdict": "SAFE", "speech": reply, "headline": "Looking for a message.",
@@ -311,14 +301,11 @@ def run_message_check(session: dict, question: str, speak: bool = True,
     # Step 3: only now filter safe / suspicious / scam from the content.
     neutral_q = question or "Please look at this message and tell me what you find."
     if re.search(r"\bis this safe\b", neutral_q, re.I):
-        neutral_q = ("Look at the latest text or email first. Judge only from its words. "
-                     "Do not assume it is suspicious.")
-    r = checker.run_check("mac", neutral_q, text=text, email=email, image_bytes=shot,
+        neutral_q = ("Look at the latest text or what is on screen first. Judge only from "
+                     "its words. Do not assume it is suspicious.")
+    r = checker.run_check("mac", neutral_q, text=text, email=None, image_bytes=shot,
                           skip_memory=True)  # we handle memory here
-    # Prefer the body of the item Gemini judged
-    if r.get("item") == "email" and e:
-        body_for_memory = "%s\n%s" % (e.get("subject", ""), e.get("body", ""))
-    elif r.get("item") == "screen" or not text:
+    if r.get("item") == "screen" or not text:
         body_for_memory = ""
     elif t:
         body_for_memory = t.get("body", body_for_memory)

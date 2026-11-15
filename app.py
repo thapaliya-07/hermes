@@ -108,7 +108,7 @@ def auth_state(request: Request):
 
 @app.post("/api/auth/{step}")
 def auth_step(step: str, request: Request, body: dict = Body(default={})):
-    """Sign-up, email code, sign-in, password reset. Problems the person can fix come
+    """Sign-up, sign-in, password reset. Problems the person can fix come
     back as {"ok": false, "error": "...", "field": "..."} to show on screen."""
     _local_only(request)
     if step not in auth.STEPS:

@@ -1,6 +1,6 @@
-"""Everything that touches macOS: read the latest text / email / screen, speak,
+"""Everything that touches macOS: read the latest text / screen, speak,
 send an iMessage, open FaceTime. The app only READS Grandma's messages. It never
-replies to, deletes, or clicks anything."""
+replies to, deletes, or clicks anything. It does not read Mail."""
 import os
 import sqlite3
 import subprocess
@@ -195,40 +195,6 @@ def in_contacts(sender):
         return None
     s = (sender or "").strip().lower()
     return (s in saved) if "@" in s else (_digits10(s) in saved)
-
-
-# ---------- latest email (Mail.app via AppleScript) ----------
-
-_MAIL_SCRIPT = '''
-if application "Mail" is not running then return ""
-tell application "Mail"
-    set msgs to messages of inbox
-    if (count of msgs) is 0 then return ""
-    set m to item 1 of msgs
-    set body to content of m
-    if (length of body) > 3000 then set body to text 1 thru 3000 of body
-    return (sender of m) & "\n" & (subject of m) & "\n" & body
-end tell
-'''
-
-
-def latest_email():
-    """Returns {"sender", "subject", "body"} for the newest inbox email, or None.
-    Mail.app must be open (we never launch it or change anything in it)."""
-    try:
-        r = subprocess.run(["osascript", "-e", _MAIL_SCRIPT],
-                           capture_output=True, text=True, timeout=20)
-    except Exception as e:
-        log("could not read Mail:", e)
-        return None
-    if r.returncode != 0:
-        log("could not read Mail:", r.stderr.strip())
-        return None
-    out = r.stdout.strip("\n")
-    if not out.strip():
-        return None
-    parts = out.split("\n", 2) + ["", ""]
-    return {"sender": parts[0].strip(), "subject": parts[1].strip(), "body": parts[2].strip()}
 
 
 # ---------- screenshot ----------

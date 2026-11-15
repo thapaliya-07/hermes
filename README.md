@@ -9,7 +9,7 @@ trick cannot fool him. Hermes is that messenger for Grandma: he looks at the mes
 trick doesn't work.
 
 - **On the Mac:** Grandma says *"Hey Hermes, I just received a text, can you clarify it for me?"*
-  Hermes reads her latest text, her latest email and her screen, decides which one she means,
+  Hermes reads her latest text and her screen, decides which one she means,
   and tells her out loud whether it is **safe**, **suspicious** or a **scam**.
 - **Conversational:** Hermes asks follow-ups when context is thin, explains *why* something is
   dangerous, can call a trusted contact ("Hermes, call my daughter"), and keeps a short session
@@ -101,7 +101,7 @@ flowchart LR
     subgraph MAC [One Python process on the Mac]
         MIC --> CONV[Conversation session]
         UI -- POST /ask --> CONV
-        CONV --> READ[Read latest text,<br/>email and screen]
+        CONV --> READ[Read latest text<br/>and screen]
         READ --> API[Check pipeline]
         API --> GEM[Gemini<br/>SAFE / SUSPICIOUS / SCAM]
         API --> MEM[Scam Memory patterns]
@@ -131,7 +131,7 @@ flowchart LR
 | `server.py` | The hosted web version for iPhone and browsers (no Mac-only parts) |
 | `auth.py` | Accounts: sign-up, sign-in, password reset, consent, emergency contact |
 | `watcher.py` | Background guard for new texts from numbers not saved in Contacts |
-| `mac.py` | Reads the latest text (`chat.db`, read-only), latest email, screenshot; iMessage; FaceTime |
+| `mac.py` | Reads the latest text (`chat.db`, read-only) and screenshot; iMessage; FaceTime |
 | `listener.py` | Wake-word listener + short follow-up window after each answer |
 | `voice.py` | Hermes's voice: cached wake-up line, chime, cloud voices, Mac fallback |
 | `config.py` | Every setting, loaded from `.env`. The product name is `APP_NAME` (default `Hermes`); wake words follow it, or set `WAKE_WORDS`. |
@@ -170,7 +170,6 @@ Security**, then quit and reopen Terminal:
 | Screen & System Audio Recording | Take the screenshot |
 | Microphone | Hear "Hey Hermes" |
 | Automation → Messages | Send the family iMessage (prompt appears on first use) |
-| Automation → Mail | Read the latest email (prompt appears on first use; keep Mail open) |
 
 Check them any time:
 
@@ -285,4 +284,4 @@ If the room is loud, use the **Is this safe?** button instead of the wake word.
 ## Built with
 
 FastAPI, Google Gemini (`google-genai`), MongoDB Atlas (`pymongo`), pywebview, SpeechRecognition,
-sounddevice, and macOS's own Messages, Mail and `screencapture`.
+sounddevice, and macOS's own Messages and `screencapture`.
