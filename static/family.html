@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>{{NAME}} Family</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-32.png">
+<link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg">
+<link rel="apple-touch-icon" href="/static/icons/icon-ios-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=DM+Sans:opsz,wght@9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --parchment: #f5f0e1;
+    --navy: #1a2c44;
+    --mute: rgba(26, 44, 68, .62);
+    --faint: rgba(26, 44, 68, .38);
+    --line: rgba(26, 44, 68, .14);
+    --tone: #1a2c44;
+    --safe: #2f6b52;
+    --suspicious: #8a6430;
+    --scam: #8a3d34;
+    --ease: cubic-bezier(.32, .72, 0, 1);
+    --display: "Cinzel", "Times New Roman", serif;
+    --sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    --cursor: url("/static/cursors/trojan.png") 4 4, auto;
+  }
+  * { box-sizing: border-box; cursor: var(--cursor); }
+  html { background: var(--parchment); }
+  body {
+    margin: 0; min-height: 100vh; color: var(--navy);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    background:
+      linear-gradient(180deg, #f7f3e8 0%, #f5f0e1 50%, #ebe4d2 100%);
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none;
+    background-image: repeating-linear-gradient(
+      -18deg, transparent 0 14px, rgba(26,44,68,.03) 14px 15px);
+    opacity: .8;
+  }
+  .page {
+    position: relative;
+    max-width: 640px; margin: 0 auto;
+    padding: max(22px, env(safe-area-inset-top)) 22px max(48px, env(safe-area-inset-bottom));
+  }
+
+  header { display: flex; align-items: center; gap: 10px; height: 28px; }
+  header img {
+    width: 26px; height: 26px; border-radius: 7px; display: block;
+    box-shadow: 0 3px 10px rgba(26,44,68,.12);
+  }
+  header .name {
+    font-family: var(--display);
+    font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+  }
+  .live {
+    margin-left: auto; display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--faint);
+  }
+  .live i {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--safe);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--safe) 22%, transparent);
+    animation: pulse 2.4s ease infinite;
+  }
+  .live.off i { background: var(--suspicious); animation: none; box-shadow: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+  h1 {
+    margin: 36px 0 8px;
+    font-family: var(--display);
+    font-size: clamp(28px, 6vw, 34px);
+    line-height: 1.15; font-weight: 600; letter-spacing: .02em;
+    text-wrap: balance;
+  }
+  .sub { margin: 0; font-size: 16px; color: var(--mute); }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+    margin: 32px 0 8px;
+    border-top: 1.5px solid var(--navy); border-bottom: 1.5px solid var(--navy);
+  }
+  .stat { padding: 18px 4px 16px; min-width: 0; }
+  .stat + .stat { border-left: 1px solid var(--line); padding-left: 16px; }
+  .stat:first-child { padding-right: 12px; }
+  .stat b {
+    display: block;
+    font-family: var(--display);
+    font-size: 28px; line-height: 1; font-weight: 600;
+    letter-spacing: -.01em; font-variant-numeric: tabular-nums;
+  }
+  .stat.last b {
+    font-size: 17px; line-height: 28px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .stat span {
+    display: block; margin-top: 8px;
+    font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--faint);
+  }
+  .stat.scams b { color: var(--scam); }
+
+  h2 {
+    margin: 36px 0 14px;
+    font-family: var(--display);
+    font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--faint);
+  }
+  .list { display: flex; flex-direction: column; }
+  .row {
+    padding: 18px 0;
+    display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; align-items: start;
+    border-bottom: 1px solid var(--line);
+    animation: rise .45s var(--ease) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+  .row h3 {
+    margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.015em; line-height: 1.3;
+  }
+  .row p { margin: 0; grid-column: 1 / -1; font-size: 15px; line-height: 1.45; color: var(--mute); }
+  .tag {
+    font-family: var(--display);
+    font-size: 10px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--c); padding-top: 3px;
+  }
+  .SAFE { --c: var(--safe); }
+  .SUSPICIOUS { --c: var(--suspicious); }
+  .SCAM { --c: var(--scam); }
+  .PATTERN { --c: var(--tone); }
+  .VERIFY { --c: var(--suspicious); }
+
+  .meta {
+    grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center;
+    gap: 6px 14px; margin-top: 2px; font-size: 13px; color: var(--faint);
+  }
+  .meta span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+  .meta svg { width: 14px; height: 14px; flex: none; opacity: .7; }
+  .meta .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+  .pattern-note {
+    grid-column: 1 / -1; margin-top: 4px; padding: 10px 0 0;
+    border-top: 1px solid var(--line); font-size: 14px; line-height: 1.4; color: var(--mute);
+  }
+  .pattern-note strong { color: var(--navy); font-weight: 650; }
+
+  .verify-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .verify-actions button {
+    appearance: none; border: 1.5px solid var(--navy);
+    background: transparent; color: var(--navy);
+    font-family: var(--display); font-size: 11px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+    padding: 11px 16px; border-radius: 2px; cursor: var(--cursor);
+  }
+  .verify-actions button.yes { color: var(--safe); border-color: var(--safe); }
+  .verify-actions button.no { color: var(--scam); border-color: var(--scam); }
+  .hint { margin: -4px 0 8px; font-size: 13px; color: var(--faint); line-height: 1.4; }
+
+  .empty {
+    padding: 40px 8px; text-align: center; color: var(--mute);
+    font-size: 15px; line-height: 1.45; border-bottom: 1px solid var(--line);
+  }
+  .empty strong {
+    display: block; color: var(--navy); font-family: var(--display);
+    font-size: 16px; margin-bottom: 6px; font-weight: 600; letter-spacing: .04em;
+  }
+
+  @media (max-width: 520px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stat.last { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); padding: 14px 0 16px; }
+    .stat + .stat.last { padding-left: 4px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <img src="/static/icons/icon-180.png" alt="" width="26" height="26">
+    <span class="name">{{NAME}} Family</span>
+    <span class="live" id="live"><i></i><span id="liveText">Live</span></span>
+  </header>
+
+  <h1 id="title">Grandma is protected.</h1>
+  <p class="sub" id="sub">Every message she asks about shows up on this voyage log.</p>
+
+  <section class="stats" aria-label="Summary">
+    <div class="stat scams"><b id="nScams">0</b><span>Scams stopped</span></div>
+    <div class="stat"><b id="nWeek">0</b><span>This week</span></div>
+    <div class="stat last"><b id="last">None yet</b><span>Last check</span></div>
+  </section>
+
+  <h2 id="verifyHeading" hidden>Needs your verification</h2>
+  <p class="hint" id="verifyHint" hidden>Reply here or by iMessage. A familiar voice is never enough proof.</p>
+  <div class="list" id="verifyList" aria-live="polite"></div>
+
+  <h2 id="patternHeading" hidden>Scam patterns</h2>
+  <p class="hint" id="patternHint" hidden>Links across messages are illustrative, not verified.</p>
+  <div class="list" id="patternList" aria-live="polite"></div>
+
+  <h2>Recent checks</h2>
+  <div class="list" id="list" aria-live="polite"></div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const ICON = {
+    mac: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="5" width="15" height="10.5" rx="1.6"/><path d="M2.5 18.5h19"/></svg>',
+    iphone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.5" y="2.5" width="9" height="19" rx="2.4"/><path d="M11 5.2h2"/></svg>',
+  };
+  const LABEL = { SAFE: "Safe", SUSPICIOUS: "Check in", SCAM: "Scam" };
+
+  function ago(d) {
+    const s = Math.max(0, (Date.now() - d.getTime()) / 1000);
+    if (s < 60) return "Just now";
+    if (s < 3600) return Math.floor(s / 60) + " min ago";
+    if (s < 86400) return Math.floor(s / 3600) + " hr ago";
+    if (s < 172800) return "Yesterday";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  let lastKey = "";
+  function render(data) {
+    const checks = data.checks || [];
+    const who = data.grandma || "Grandma";
+    const scams = checks.filter(c => c.verdict === "SCAM" && !c.error).length;
+    const weekAgo = Date.now() - 7 * 864e5;
+    const week = checks.filter(c => new Date(c.created_at).getTime() >= weekAgo).length;
+    $("nScams").textContent = scams;
+    $("nWeek").textContent = week;
+    $("last").textContent = checks.length ? ago(new Date(checks[0].created_at)) : "None yet";
+    $("title").textContent = who + " is protected.";
+
+    const key = checks.length + "|" + (checks[0] ? checks[0].created_at : "") + "|" + (data.error || "");
+    if (key === lastKey) return;
+    lastKey = key;
+
+    const list = $("list");
+    list.textContent = "";
+    if (!checks.length) {
+      const box = el("div", "empty");
+      box.append(el("strong", "", data.error ? "History is not connected." : "No checks yet."));
+      box.append(data.error ? "Add MONGODB_URI to .env and restart the app."
+                            : who + " hasn't asked {{NAME}} about anything yet.");
+      list.append(box);
+      return;
+    }
+    checks.forEach((c, i) => {
+      const row = el("article", "row");
+      row.style.animationDelay = Math.min(i, 8) * 35 + "ms";
+      row.append(el("h3", "", c.headline || "Checked"));
+      row.append(el("span", "tag " + c.verdict, c.error ? "Not checked" : (LABEL[c.verdict] || c.verdict)));
+      row.append(el("p", "", c.reason || ""));
+      if (c.pattern && c.pattern.summary) {
+        const note = el("div", "pattern-note");
+        note.append(el("strong", "", (c.pattern.title || "Pattern") + " · "));
+        note.append(document.createTextNode(c.pattern.summary));
+        row.append(note);
+      }
+      if (c.offer_verify) row.append(el("p", "", "Offered to verify with a trusted contact."));
+      const meta = el("div", "meta");
+      const dev = el("span");
+      const isPhone = (c.device || "").toLowerCase().includes("phone");
+      dev.innerHTML = isPhone ? ICON.iphone : ICON.mac;
+      dev.append(isPhone ? "iPhone" : "Mac");
+      meta.append(dev);
+      if (c.sender && c.sender.toLowerCase() !== "unknown") {
+        meta.append(el("span", "who", (c.item || "message") + " from " + c.sender));
+      }
+      const d = new Date(c.created_at);
+      meta.append(el("span", "", ago(d) + " · " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })));
+      row.append(meta);
+      list.append(row);
+    });
+  }
+
+  function renderVerify(data) {
+    const pending = (data && data.pending) || [];
+    $("verifyHeading").hidden = !pending.length;
+    $("verifyHint").hidden = !pending.length;
+    const list = $("verifyList");
+    list.textContent = "";
+    pending.forEach((v, i) => {
+      const row = el("article", "row");
+      row.style.animationDelay = Math.min(i, 8) * 35 + "ms";
+      row.append(el("h3", "", v.check_headline || "Possible impersonation"));
+      row.append(el("span", "tag VERIFY", "Verify"));
+      row.append(el("p", "", "From " + (v.check_sender || "unknown") + ". Reply for " + (v.grandma || "Grandma") + "."));
+      const actions = el("div", "verify-actions");
+      const yes = el("button", "yes", "Yes, legitimate");
+      const no = el("button", "no", "No, not real");
+      yes.type = "button"; no.type = "button";
+      yes.onclick = () => respondVerify(v.id, v.code, "yes");
+      no.onclick = () => respondVerify(v.id, v.code, "no");
+      actions.append(yes, no);
+      row.append(actions);
+      const meta = el("div", "meta");
+      meta.append(el("span", "", "Code " + (v.code || "")));
+      meta.append(el("span", "", v.contact_name || "Family"));
+      row.append(meta);
+      list.append(row);
+    });
+  }
+
+  function renderPatterns(data) {
+    const incidents = (data && data.incidents) || [];
+    const show = incidents.length > 0;
+    $("patternHeading").hidden = !show;
+    $("patternHint").hidden = !show;
+    const list = $("patternList");
+    list.textContent = "";
+    incidents.slice(0, 8).forEach((p, i) => {
+      const row = el("article", "row");
+      row.style.animationDelay = Math.min(i, 8) * 35 + "ms";
+      row.append(el("h3", "", p.headline || "Suspicious incident"));
+      row.append(el("span", "tag PATTERN", p.verdict || "Memory"));
+      row.append(el("p", "", p.reason || ("Remembered " + (p.item || "message") + " from " + (p.sender || "unknown"))));
+      const meta = el("div", "meta");
+      if (p.when) meta.append(el("span", "", p.when));
+      if (p.sender) meta.append(el("span", "who", p.sender));
+      row.append(meta);
+      list.append(row);
+    });
+  }
+
+  async function respondVerify(id, code, decision) {
+    try {
+      const r = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, code, decision }),
+      });
+      if (!r.ok) { alert((await r.text()) || "Could not save your reply."); return; }
+      refreshExtras(); refresh();
+    } catch (e) { alert("Could not reach {{NAME}}."); }
+  }
+
+  async function refresh() {
+    try {
+      const r = await fetch("/api/checks?limit=200", { cache: "no-store" });
+      render(await r.json());
+      $("live").classList.remove("off"); $("liveText").textContent = "Live";
+    } catch (e) {
+      $("live").classList.add("off"); $("liveText").textContent = "Reconnecting…";
+    }
+  }
+  async function refreshExtras() {
+    try {
+      const [v, p] = await Promise.all([
+        fetch("/api/verify/pending", { cache: "no-store" }).then(r => r.json()),
+        fetch("/api/patterns?limit=30", { cache: "no-store" }).then(r => r.json()),
+      ]);
+      renderVerify(v); renderPatterns(p);
+    } catch (e) {}
+  }
+  refresh(); refreshExtras();
+  setInterval(refresh, 5000);
+  setInterval(refreshExtras, 8000);
+  const es = new EventSource("/events");
+  es.onmessage = m => {
+    const s = JSON.parse(m.data).state;
+    if (s === "safe" || s === "suspicious" || s === "scam") {
+      setTimeout(refresh, 1200); setTimeout(refresh, 3500);
+      setTimeout(refreshExtras, 1500);
+    }
+  };
+</script>
+</body>
+</html>

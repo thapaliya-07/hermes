@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Trojan horse head cursor  solid Odyssey gold -->
+  <path fill="#C9B07A" stroke="#1A1625" stroke-width="1.2" stroke-linejoin="round"
+        d="M6 22 L8 14 L10 10 L14 7 L18 6 L22 7 L25 10 L26 14 L24 16 L25 20 L22 22
+           L20 19 L16 20 L12 19 L10 22 Z"/>
+  <path fill="#1A1625" d="M20 11.5 a1.6 1.6 0 1 1 -0.1 0 z"/>
+  <path fill="none" stroke="#1A1625" stroke-width="1.2" stroke-linecap="round"
+        d="M10 14 L7 11 M8 16 L5 15"/>
+  <path fill="#C9B07A" stroke="#1A1625" stroke-width="1" d="M14 20 L15 26 L17 26 L18 20"/>
+</svg>

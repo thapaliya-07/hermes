@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Trojan</title>
+  <defs>
+    <linearGradient id="bg" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#0a1224"/>
+      <stop offset="0.55" stop-color="#0c2233"/>
+      <stop offset="1" stop-color="#11505a"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ecd49a"/>
+      <stop offset="1" stop-color="#c9a660"/>
+    </linearGradient>
+    <clipPath id="clip"><rect width="1024" height="1024" rx="230"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
+  <g clip-path="url(#clip)">
+    <!-- thin gold shield: Trojan stands guard -->
+    <path d="M512 118 L816 226 V508 C816 706 690 846 512 912 C334 846 208 706 208 508 V226 Z"
+          fill="none" stroke="url(#gold)" stroke-width="20" stroke-linejoin="round"/>
+    <!-- horse head -->
+    <g transform="translate(512 512) scale(0.74) translate(-545 -520)">
+      <path d="M 640 165 L 565 300 C 480 335 385 425 305 545 C 283 580 288 625 322 643 C 362 664 402 650 440 622 C 478 600 520 592 548 604 C 525 690 445 760 425 850 L 785 850 C 805 700 790 480 705 325 Z" fill="#f5f2ea"/>
+      <circle cx="528" cy="438" r="20" fill="#0c2233"/>
+    </g>
+  </g>
+</svg>

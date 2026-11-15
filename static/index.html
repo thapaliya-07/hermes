@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>{{NAME}}</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-32.png">
+<link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg">
+<link rel="apple-touch-icon" href="/static/icons/icon-ios-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=DM+Sans:opsz,wght@9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+  @property --tone {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #1a2c44;
+  }
+
+  :root {
+    /* HackUTA Odyssey — parchment sky + navy silhouettes */
+    --parchment: #f5f0e1;
+    --parchment-deep: #ebe4d2;
+    --navy: #1a2c44;
+    --navy-soft: #2a4060;
+    --ink: #1a2c44;
+    --mute: rgba(26, 44, 68, .62);
+    --faint: rgba(26, 44, 68, .38);
+    --line: rgba(26, 44, 68, .14);
+    --ease: cubic-bezier(.32, .72, 0, 1);
+    --soft: cubic-bezier(.4, 0, .2, 1);
+    --display: "Cinzel", "Times New Roman", serif;
+    --sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    --cursor: url("/static/cursors/trojan.png") 4 4, auto;
+  }
+
+  body[data-state="idle"]       { --tone: #1a2c44; --energy: .26; }
+  body[data-state="listening"]  { --tone: #2f5f7a; --energy: .88; }
+  body[data-state="thinking"]   { --tone: #3d4e6e; --energy: .55; }
+  body[data-state="safe"]       { --tone: #2f6b52; --energy: .7; }
+  body[data-state="suspicious"] { --tone: #8a6430; --energy: .75; }
+  body[data-state="scam"]       { --tone: #8a3d34; --energy: .92; }
+
+  * { box-sizing: border-box; cursor: var(--cursor); }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: var(--sans);
+    color: var(--ink);
+    background: var(--parchment);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: --tone 700ms var(--soft);
+  }
+
+  /* —— HackUTA-style Odyssey stage —— */
+  .odyssey {
+    position: fixed; inset: 0; overflow: hidden; pointer-events: none;
+    background:
+      linear-gradient(180deg,
+        #f7f3e8 0%,
+        #f5f0e1 45%,
+        #ebe4d2 78%,
+        #ddd4c0 100%);
+  }
+
+  /* soft slanted rain (HackUTA atmosphere) */
+  .rain {
+    position: absolute; inset: -20%;
+    background-image: repeating-linear-gradient(
+      -18deg,
+      transparent 0 14px,
+      rgba(26, 44, 68, .035) 14px 15px);
+    animation: rain-drift 18s linear infinite;
+    opacity: .9;
+  }
+  @keyframes rain-drift {
+    from { transform: translateY(-4%); }
+    to { transform: translateY(4%); }
+  }
+
+  /* cliff + tree silhouettes */
+  .cliff {
+    position: absolute; bottom: 0; width: 28%; height: 72%;
+    color: var(--navy); opacity: .92;
+  }
+  .cliff.left { left: -2%; }
+  .cliff.right { right: -2%; transform: scaleX(-1); }
+  .cliff svg { width: 100%; height: 100%; display: block; }
+
+  /* horizon mist */
+  .mist {
+    position: absolute; left: 0; right: 0; top: 0; height: 55%;
+    background: radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,.35), transparent 70%);
+  }
+
+  /* wine-dark sea layers */
+  .sea {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 26%;
+  }
+  .sea svg {
+    position: absolute; left: -4%; width: 108%; bottom: 0; height: 100%;
+  }
+  .sea .a { color: #152538; animation: wave 10s var(--soft) infinite alternate; }
+  .sea .b { color: #1a2c44; opacity: .9; animation: wave 14s var(--soft) infinite alternate-reverse; bottom: -6%; }
+  .sea .c { color: #0f1a2a; opacity: .85; animation: wave 8s var(--soft) infinite alternate; bottom: -12%; height: 70%; }
+  @keyframes wave { to { transform: translateX(2.5%) translateY(-3px); } }
+
+  /* Greek trireme */
+  .ship {
+    position: absolute; bottom: 16%; left: 50%;
+    width: min(42vw, 168px); height: auto;
+    transform: translateX(-50%);
+    color: var(--navy);
+    animation: bob 5.5s var(--soft) infinite;
+    filter: drop-shadow(0 8px 0 rgba(26,44,68,.08));
+  }
+  .ship svg { width: 100%; height: auto; display: block; }
+  @keyframes bob {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-5px); }
+  }
+
+  .sun {
+    position: absolute; width: 40vmax; height: 40vmax;
+    left: 50%; top: 28%; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, color-mix(in srgb, var(--tone) 12%, transparent), transparent 65%);
+    animation: sun 8s var(--soft) infinite;
+    transition: background .7s;
+  }
+  @keyframes sun {
+    0%,100% { opacity: .45; transform: translate(-50%, -50%) scale(.95); }
+    50% { opacity: .75; transform: translate(-50%, -50%) scale(1.06); }
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .app {
+    position: relative; height: 100%; max-width: 430px; margin: 0 auto;
+    display: grid; grid-template-rows: auto 1fr auto;
+    padding: max(20px, env(safe-area-inset-top)) 28px max(22px, env(safe-area-inset-bottom));
+  }
+
+  header {
+    display: flex; align-items: center; gap: 10px; height: 30px;
+    opacity: 0; animation: rise .85s var(--ease) .05s forwards;
+  }
+  header .mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(26, 44, 68, .12);
+  }
+  header .brand {
+    font-family: var(--display);
+    font-size: 14px; font-weight: 600; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--navy);
+  }
+  .pill {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .pill i {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--tone);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 20%, transparent);
+  }
+
+  main {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; min-height: 0; z-index: 1;
+  }
+
+  .wave-stage {
+    position: relative; width: min(78vw, 280px); height: 132px;
+    margin: 6px 0 26px; flex: none;
+    opacity: 0; animation: rise .9s var(--ease) .1s forwards;
+  }
+  .wave-stage canvas { width: 100%; height: 100%; display: block; }
+  .wave-glow {
+    position: absolute; inset: 12% 8%;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--tone) 18%, transparent), transparent 70%);
+    filter: blur(14px); animation: glow 3.6s var(--soft) infinite;
+  }
+  body[data-state="listening"] .wave-glow,
+  body[data-state="safe"] .wave-glow,
+  body[data-state="suspicious"] .wave-glow,
+  body[data-state="scam"] .wave-glow { animation-duration: 1.2s; }
+  @keyframes glow {
+    0%,100% { opacity: .3; transform: scale(.94); }
+    50% { opacity: .65; transform: scale(1.08); }
+  }
+
+  .copy { width: 100%; max-width: 19em; opacity: 0; animation: rise .9s var(--ease) .18s forwards; }
+  .eyebrow {
+    height: 16px; margin: 0 0 10px;
+    font-family: var(--display);
+    font-size: 10px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--tone); opacity: 0; transform: translateY(4px);
+    transition: opacity .4s, transform .4s, color .5s;
+  }
+  .eyebrow.on { opacity: 1; transform: none; }
+  h1 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: clamp(26px, 6.5vw, 32px);
+    line-height: 1.18; font-weight: 600; letter-spacing: .02em;
+    color: var(--navy); text-wrap: balance; min-height: 1.15em;
+  }
+  #advice {
+    margin: 12px auto 0;
+    font-size: 16px; line-height: 1.45; font-weight: 500;
+    letter-spacing: -.01em; color: var(--mute); text-wrap: balance; min-height: 1.4em;
+  }
+  .w {
+    display: inline-block; opacity: 0; transform: translateY(6px);
+    animation: word .55s var(--ease) forwards; white-space: pre;
+  }
+  @keyframes word { to { opacity: 1; transform: none; } }
+  .leaving .w { animation: word-out .18s var(--soft) forwards; }
+  @keyframes word-out { to { opacity: 0; transform: translateY(-4px); } }
+  #from {
+    display: inline-flex; margin-top: 16px;
+    font-size: 13px; font-weight: 500; color: var(--faint);
+    opacity: 0; transform: translateY(4px);
+    transition: opacity .4s .15s, transform .45s .15s;
+  }
+  #from.on { opacity: 1; transform: none; color: var(--mute); }
+
+  footer {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    opacity: 0; animation: rise .9s var(--ease) .26s forwards; z-index: 1;
+  }
+  .swipe {
+    position: relative; width: 100%; max-width: 320px; height: 64px;
+    border-radius: 4px;
+    background: rgba(255,255,255,.35);
+    border: 1.5px solid var(--navy);
+    box-shadow: 0 10px 28px -18px rgba(26, 44, 68, .35);
+    overflow: hidden; touch-action: none; transition: opacity .35s;
+  }
+  .swipe[aria-disabled="true"] { opacity: .4; pointer-events: none; }
+  .swipe-fill {
+    position: absolute; inset: 0 auto 0 0; width: 64px;
+    background: color-mix(in srgb, var(--tone) 16%, transparent); pointer-events: none;
+  }
+  .swipe-label {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding-left: 28px;
+    font-family: var(--display);
+    font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--navy); pointer-events: none; transition: opacity .25s;
+  }
+  .swipe-label .chevs { display: inline-flex; gap: 1px; color: var(--navy-soft); }
+  .swipe-label .chevs span {
+    display: inline-block; opacity: .4; animation: chev 1.6s var(--soft) infinite;
+  }
+  .swipe-label .chevs span:nth-child(2) { animation-delay: .12s; }
+  .swipe-label .chevs span:nth-child(3) { animation-delay: .24s; }
+  @keyframes chev {
+    0%,100% { opacity: .3; transform: translateX(0); }
+    50% { opacity: .85; transform: translateX(2px); }
+  }
+  .swipe.dragging .swipe-label, .swipe.armed .swipe-label { opacity: 0; }
+
+  .thumb {
+    position: absolute; top: 4px; left: 4px;
+    width: 56px; height: 56px; border-radius: 2px;
+    background: var(--parchment);
+    border: 1.5px solid var(--navy);
+    display: grid; place-items: center; z-index: 2; overflow: hidden;
+    will-change: transform;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .hint {
+    margin: 0;
+    font-size: 13px; font-weight: 500; letter-spacing: .02em; color: var(--faint);
+  }
+
+  @media (max-height: 560px) {
+    .wave-stage { height: 100px; margin-bottom: 16px; }
+    .cliff { height: 55%; }
+    .ship { width: 120px; }
+    h1 { font-size: 24px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+    .w { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body data-state="idle">
+<div class="odyssey" aria-hidden="true">
+  <div class="mist"></div>
+  <div class="rain"></div>
+  <div class="sun"></div>
+
+  <div class="cliff left">
+    <svg viewBox="0 0 200 400" preserveAspectRatio="none">
+      <path fill="currentColor" d="M0 400 V180 L28 160 L40 90 L70 120 L85 40 L110 95 L130 70 L150 140 L180 120 L200 160 V400 Z"/>
+      <!-- stylized trees -->
+      <path fill="currentColor" d="M52 95 L52 55 M52 70 L38 50 M52 62 L66 44 M52 78 L40 68 M52 78 L64 66"/>
+      <path fill="currentColor" d="M118 88 L118 48 M118 64 L104 46 M118 58 L132 40 M118 72 L106 62 M118 72 L130 60"/>
+      <path fill="currentColor" d="M28 165 L28 140 M28 150 L18 136 M28 148 L38 134"/>
+    </svg>
+  </div>
+  <div class="cliff right">
+    <svg viewBox="0 0 200 400" preserveAspectRatio="none">
+      <path fill="currentColor" d="M0 400 V180 L28 160 L40 90 L70 120 L85 40 L110 95 L130 70 L150 140 L180 120 L200 160 V400 Z"/>
+      <path fill="currentColor" d="M52 95 L52 55 M52 70 L38 50 M52 62 L66 44 M52 78 L40 68 M52 78 L64 66"/>
+      <path fill="currentColor" d="M118 88 L118 48 M118 64 L104 46 M118 58 L132 40 M118 72 L106 62 M118 72 L130 60"/>
+    </svg>
+  </div>
+
+  <div class="ship">
+    <svg viewBox="0 0 200 90" fill="currentColor">
+      <path d="M18 62 L40 48 L160 48 L182 62 L160 70 L40 70 Z"/>
+      <path d="M100 48 L100 12 L138 48 Z"/>
+      <path d="M100 18 L72 48"/>
+      <rect x="96" y="10" width="8" height="8"/>
+      <!-- oars -->
+      <path d="M50 70 L42 82 M70 70 L62 82 M90 70 L82 82 M110 70 L118 82 M130 70 L138 82 M150 70 L158 82" stroke="currentColor" stroke-width="2" fill="none"/>
+      <!-- rowers -->
+      <circle cx="58" cy="54" r="2.5"/><circle cx="78" cy="54" r="2.5"/>
+      <circle cx="98" cy="54" r="2.5"/><circle cx="118" cy="54" r="2.5"/>
+      <circle cx="138" cy="54" r="2.5"/>
+    </svg>
+  </div>
+
+  <div class="sea">
+    <svg class="a" viewBox="0 0 1200 160" preserveAspectRatio="none"><path fill="currentColor" d="M0 70 Q150 30 300 70 T600 70 T900 70 T1200 70 V160 H0 Z"/></svg>
+    <svg class="b" viewBox="0 0 1200 160" preserveAspectRatio="none"><path fill="currentColor" d="M0 90 Q200 45 400 90 T800 90 T1200 90 V160 H0 Z"/></svg>
+    <svg class="c" viewBox="0 0 1200 160" preserveAspectRatio="none"><path fill="currentColor" d="M0 100 Q180 60 360 100 T720 100 T1080 100 T1200 100 V160 H0 Z"/></svg>
+  </div>
+</div>
+
+<div class="app">
+  <header>
+    <img class="mark" src="/static/icons/icon-180.png" alt="" width="28" height="28">
+    <span class="brand">{{NAME}}</span>
+    <span class="pill"><i></i><span id="status">Ready</span></span>
+  </header>
+
+  <main>
+    <div class="wave-stage" aria-hidden="true">
+      <div class="wave-glow"></div>
+      <canvas id="waves" width="560" height="264"></canvas>
+    </div>
+    <div class="copy" id="words" role="status" aria-live="polite">
+      <p class="eyebrow" id="eyebrow"></p>
+      <h1 id="headline"></h1>
+      <p id="advice"></p>
+      <div id="from"><span id="fromText"></span></div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="swipe" id="swipe" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+         aria-label="Swipe to check if this is safe" tabindex="0">
+      <div class="swipe-fill" id="swipeFill"></div>
+      <div class="swipe-label">
+        Swipe to check
+        <span class="chevs" aria-hidden="true"><span>›</span><span>›</span><span>›</span></span>
+      </div>
+      <div class="thumb" id="thumb">
+        <img src="/static/icons/icon-180.png" alt="" width="56" height="56" draggable="false">
+      </div>
+    </div>
+    <p class="hint">Or say “Hey {{NAME}}” — we've set sail</p>
+  </footer>
+</div>
+
+<script>
+  const NAME = "{{NAME}}";
+  const $ = id => document.getElementById(id);
+
+  (function waves() {
+    const canvas = $("waves");
+    const ctx = canvas.getContext("2d");
+    const LAYERS = 3, POINTS = 50;
+    const phases = Array.from({ length: LAYERS }, () => Math.random() * Math.PI * 2);
+    const speeds = [1.1, 0.8, 1.35];
+    const amps = [0.38, 0.25, 0.16];
+    const seeds = Array.from({ length: LAYERS }, () =>
+      Array.from({ length: POINTS }, () => 0.5 + Math.random()));
+    let energy = 0.26, target = 0.26, t = 0;
+
+    function readEnergy() {
+      const n = parseFloat(getComputedStyle(document.body).getPropertyValue("--energy"));
+      return Number.isFinite(n) ? n : 0.26;
+    }
+    function color() {
+      return getComputedStyle(document.body).getPropertyValue("--tone").trim() || "#1a2c44";
+    }
+
+    function frame(now) {
+      target = readEnergy();
+      energy += (target - energy) * 0.08;
+      t = now * 0.001;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      if (canvas.width !== (w * dpr | 0) || canvas.height !== (h * dpr | 0)) {
+        canvas.width = w * dpr | 0; canvas.height = h * dpr | 0;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const mid = h * 0.52, c = color();
+
+      for (let L = LAYERS - 1; L >= 0; L--) {
+        const amp = amps[L] * h * (0.16 + energy * 0.95);
+        ctx.beginPath();
+        for (let i = 0; i < POINTS; i++) {
+          const x = (i / (POINTS - 1)) * w;
+          const n = seeds[L][i];
+          const wobble = Math.sin(t * speeds[L] * 2.1 + phases[L] + i * 0.36 * n)
+            + 0.55 * Math.sin(t * speeds[L] * 3.3 - i * 0.2 + n * 4)
+            + 0.28 * Math.sin(t * 5.1 + i * n);
+          const jitter = energy > 0.5
+            ? Math.sin(t * 11 + i * 1.7 + phases[L]) * Math.sin(t * 3.2 + n) * 0.28 : 0;
+          const y = mid + (wobble + jitter) * amp * (0.55 + 0.45 * Math.sin((i / POINTS) * Math.PI));
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = c;
+        ctx.globalAlpha = 0.22 + energy * 0.4 - L * 0.04;
+        ctx.lineWidth = L === 0 ? 2.5 : 1.6;
+        ctx.lineCap = "round"; ctx.lineJoin = "round";
+        ctx.stroke();
+        if (L === 0) {
+          ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+          ctx.globalAlpha = 0.04 + energy * 0.07;
+          ctx.fillStyle = c; ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+      if (Math.random() < 0.04 + energy * 0.08) {
+        seeds[(Math.random() * LAYERS) | 0][(Math.random() * POINTS) | 0] = 0.45 + Math.random() * 1.1;
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
+
+  function greeting() {
+    const h = new Date().getHours();
+    return h < 5 ? "Good evening." : h < 12 ? "Good morning." : h < 18 ? "Good afternoon." : "Good evening.";
+  }
+  const COPY = {
+    idle:      () => ({ status: "Ready",     eyebrow: "", headline: greeting(),         advice: "I watch the messages so the trick cannot fool you." }),
+    listening: () => ({ status: "Listening", eyebrow: "", headline: "I'm listening.",   advice: "Tell me what arrived." }),
+    thinking:  () => ({ status: "Looking",   eyebrow: "", headline: "Reading the signs.", advice: "One moment." }),
+  };
+  const EYEBROW = { safe: "Safe harbor", suspicious: "Take care", scam: "Circe's trick" };
+  const STATUS  = { safe: "Clear", suspicious: "Caution", scam: "Warning" };
+
+  function setWords(el, text, startDelay) {
+    el.textContent = "";
+    text.split(/(\s+)/).forEach((part, i) => {
+      if (!part) return;
+      if (/^\s+$/.test(part)) { el.append(" "); return; }
+      const s = document.createElement("span");
+      s.className = "w"; s.textContent = part;
+      s.style.animationDelay = (startDelay + i * 22) + "ms";
+      el.append(s);
+    });
+  }
+
+  let current = "", timer = null, busy = false;
+  function setSwipeEnabled(on) { $("swipe").setAttribute("aria-disabled", on ? "false" : "true"); }
+
+  function show(e) {
+    const base = COPY[e.state] ? COPY[e.state]() : {
+      status: STATUS[e.state] || "", eyebrow: EYEBROW[e.state] || "",
+      headline: e.headline || "", advice: e.action || e.reason || "" };
+    const from = !COPY[e.state] && e.sender && e.sender.toLowerCase() !== "unknown" ? "From " + e.sender : "";
+    document.body.dataset.state = e.state;
+    busy = e.state === "listening" || e.state === "thinking";
+    setSwipeEnabled(!busy);
+    $("status").textContent = base.status;
+    const key = base.headline + "|" + base.advice + "|" + from;
+    if (key === current) return;
+    current = key;
+    $("words").classList.add("leaving");
+    $("eyebrow").classList.remove("on");
+    $("from").classList.remove("on");
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      $("words").classList.remove("leaving");
+      $("eyebrow").textContent = base.eyebrow;
+      if (base.eyebrow) $("eyebrow").classList.add("on");
+      setWords($("headline"), base.headline, 0);
+      setWords($("advice"), base.advice, 140);
+      $("fromText").textContent = from;
+      if (from) $("from").classList.add("on");
+    }, 200);
+  }
+
+  const swipe = $("swipe"), thumb = $("thumb"), fill = $("swipeFill");
+  const THUMB = 56, PAD = 4;
+  let dragging = false, startX = 0, x = 0, maxX = 0;
+  function measure() { maxX = Math.max(0, swipe.clientWidth - THUMB - PAD * 2); }
+  measure(); window.addEventListener("resize", measure);
+  function setX(nx, animate) {
+    x = Math.max(0, Math.min(maxX, nx));
+    const t = animate ? "transform 420ms cubic-bezier(.32,.72,0,1)" : "none";
+    thumb.style.transition = t;
+    fill.style.transition = animate ? "width 420ms cubic-bezier(.32,.72,0,1), background .5s" : "none";
+    thumb.style.transform = "translate3d(" + x + "px,0,0)";
+    fill.style.width = (x + THUMB + PAD) + "px";
+    const pct = maxX ? Math.round((x / maxX) * 100) : 0;
+    swipe.setAttribute("aria-valuenow", String(pct));
+    swipe.classList.toggle("armed", pct > 72);
+  }
+  function resetThumb() { swipe.classList.remove("dragging", "armed", "success"); setX(0, true); }
+  function triggerCheck() {
+    swipe.classList.add("success"); setX(maxX, true);
+    if (window.navigator.vibrate) window.navigator.vibrate(12);
+    if (!demo) {
+      show({ state: "listening" });
+      fetch("/ask", { method: "POST" }).catch(() => show({ state: "idle" }));
+    } else show(Object.assign({ state: demo }, DEMO[demo] || {}));
+    setTimeout(resetThumb, 520);
+  }
+  function onDown(clientX) {
+    if (busy || swipe.getAttribute("aria-disabled") === "true") return;
+    measure(); dragging = true; startX = clientX - x;
+    swipe.classList.add("dragging"); thumb.style.transition = "none"; fill.style.transition = "none";
+  }
+  function onMove(clientX) { if (dragging) setX(clientX - startX, false); }
+  function onUp() {
+    if (!dragging) return;
+    dragging = false; swipe.classList.remove("dragging");
+    if (x >= maxX * 0.82) triggerCheck(); else resetThumb();
+  }
+  thumb.addEventListener("pointerdown", e => { e.preventDefault(); thumb.setPointerCapture(e.pointerId); onDown(e.clientX); });
+  thumb.addEventListener("pointermove", e => onMove(e.clientX));
+  thumb.addEventListener("pointerup", onUp);
+  thumb.addEventListener("pointercancel", onUp);
+  swipe.addEventListener("keydown", e => {
+    if (busy) return;
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); triggerCheck(); }
+    if (e.key === "ArrowRight") { e.preventDefault(); setX(x + maxX * 0.2, true); if (x >= maxX * 0.82) triggerCheck(); }
+    if (e.key === "ArrowLeft" || e.key === "Escape") { e.preventDefault(); resetThumb(); }
+  });
+
+  const demo = new URLSearchParams(location.search).get("demo");
+  const DEMO = {
+    safe:       { headline: "This looks safe.",     action: "A warm note from someone you know.", sender: "Maya" },
+    suspicious: { headline: "Something seems off.", action: "Wait for family before you act.",     sender: "+1 (555) 010-0142" },
+    scam:       { headline: "This text is a scam.", action: "Do not tap anything in it.",          sender: "+1 (555) 010-0199" },
+  };
+  if (demo) show(Object.assign({ state: demo }, DEMO[demo] || {}));
+  else {
+    show({ state: "idle" });
+    const es = new EventSource("/events");
+    es.onmessage = m => show(JSON.parse(m.data));
+  }
+</script>
+</body>
+</html>
