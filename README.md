@@ -27,6 +27,22 @@ trick doesn't work.
   the family (unless a verification offer is in progress).
 - **Hermes never replies to, deletes or clicks anything for her.** It only explains and alerts.
 
+## Accounts and the background guard
+
+**Sign in first.** On first launch the window opens on a sign-up screen: first name, phone
+number and date of birth, then a 6-digit code sent to that phone (it can be re-sent after 30
+seconds), then a password. *Forgot password* sends a new code. Anyone under 18 or over 50 must
+add an emergency contact; for everyone else it is optional. Accounts are stored on this Mac
+only (`data/accounts.json`, not committed), with passwords and codes kept as salted hashes.
+The code is sent as an iMessage from this Mac, so it is free.
+
+**Then nobody has to call Hermes.** While signed in, `watcher.py` reads every new incoming
+text. Senders saved in Contacts are left alone. For any other number, ordinary chat is ignored
+silently, and that number stays watched until it is saved in Contacts. When a message
+mentions prizes, bank or card details, SSN, codes, payments or an odd link, Hermes checks it,
+and if it is suspicious or a scam the window pops up, Hermes says so out loud, and the
+emergency contact gets an iMessage. The wake word and the swipe still work as before.
+
 ## How it works
 
 ```mermaid
@@ -65,6 +81,8 @@ flowchart LR
 | `conversation.py` | Interactive turns: session ID, small history window, intents (check / why / call / verify) |
 | `memory.py` | Scam Memory: normalize senders/domains, MongoDB match, Gemini-assisted pattern notes |
 | `verify.py` | Trusted-contact verification for impersonation (iMessage + optional family phrase) |
+| `auth.py` | Accounts: sign-up, one-time code, password, reset, emergency contact |
+| `watcher.py` | Background guard for new texts from numbers not saved in Contacts |
 | `mac.py` | Reads the latest text (`chat.db`, read-only), latest email, screenshot; iMessage; FaceTime |
 | `listener.py` | Wake-word listener + short follow-up window after each answer |
 | `voice.py` | Hermes's voice: cached wake-up line, chime, cloud voices, Mac fallback |
@@ -141,20 +159,21 @@ Login Items**.
 
 Hermes picks the best voice available and never stays silent:
 
-1. **ElevenLabs** if `ELEVENLABS_API_KEY` is set
-2. **Fish Audio** if `FISH_API_KEY` is set
-3. **Gemini's natural voice** (default; free, uses the same `GEMINI_API_KEY`). Change it with
-   `GEMINI_VOICE=` (`Sulafat`, `Achernar`, `Vindemiatrix`, `Aoede`, `Kore`) or set `off`.
+1. **Fish Audio** if `FISH_API_KEY` is set (same TTS as Cal Hacks 12.0 FaceTimeOS) — recommended
+2. **ElevenLabs** if `ELEVENLABS_API_KEY` is set
+3. **Gemini's natural voice** (default; free, uses the same `GEMINI_API_KEY`). Default voice is
+   `Kore` (clear). Others: `Aoede`, `Sulafat`, `Achernar`. Set `GEMINI_VOICE=off` for Mac only.
 4. **macOS `say`** as the instant fallback if anything above fails.
 
-To make the fallback sound good, download a premium Mac voice: **System Settings →
-Accessibility → Spoken Content → System Voice → Manage Voices**, then pick an English voice
-marked *Premium* or *Enhanced* (for example Ava or Zoe). Hermes finds it automatically, or set
-`TROJAN_VOICE=` to the exact name from `say -v '?'`. Speaking rate is `TROJAN_RATE` (165).
+Free Fish key: https://fish.audio/app/api-keys/ — add `FISH_API_KEY=` to `.env` and restart.
 
-How Hermes speaks: the answer first, then the reason, then one action. Short sentences, about
-30 words, no jargon. *"I'm here. Let me take a look."* is cached and plays instantly. A soft
-two-note chime plays before a scam warning.
+To make the Mac fallback sound good, download a premium voice: **System Settings →
+Accessibility → Spoken Content → System Voice → Manage Voices**, then pick *Premium* /
+*Enhanced* (Zoe, Nora, Samantha). Rate is `TROJAN_RATE` (155).
+
+How Hermes speaks: two short lines only — the answer, then what to do. No long “what it isn’t”
+explanations. *"I'm here."* is cached and plays instantly. A soft chime plays before a scam
+warning.
 
 ## iPhone Shortcut
 

@@ -65,6 +65,10 @@ class Verdict(BaseModel):
     reason: str
     action: str
     speech: str
+    # UI / storytelling cue — which Odyssey scene fits this message
+    scene: Literal[
+        "harbor", "stranger", "siren", "circe", "cyclops", "storm", "watch"
+    ] = "harbor"
 
 
 SYSTEM_PROMPT = """You are {name}, a calm, warm scam guard for an elderly person.
@@ -80,36 +84,68 @@ email, and a screenshot of her screen. First decide WHICH ONE item she means (us
 "text", "message", "email", "this", "on my screen"; if unclear, pick the most recent item or
 what is clearly visible on screen). Then judge only that item.
 
+If a "Sender status" line is given, use it: KNOWN means she has written to this person
+before; UNKNOWN means she never has. For an ordinary, friendly message from an UNKNOWN
+sender: verdict SAFE, say the message itself looks normal, and ask gently whether she knows
+this number. For the same message from a KNOWN sender: just say it is safe.
+Always ALERT (SCAM) when the content asks for card numbers, bank details, SSN, passwords or
+codes, or promises a lottery, prize, free iPhone or money, or pushes a link to claim/verify.
+
+A link to a well-known site (YouTube, Google Maps, a news site, Amazon, a photo) is NOT
+a risk clue by itself. A friend sharing a video is SAFE. From an UNKNOWN sender, say it looks
+like an ordinary video or web link, ask if she knows the sender, and suggest opening it only
+if she does. Only odd or lookalike web addresses, or links pushed with money, prizes,
+passwords or hurry, are risky.
+
+If she asks about her SCREEN, or says "this" / "look at" / "notification", judge what is
+visible in the screenshot and set item to "screen".
+
+CRITICAL — judge the WORDS first, not the phone number:
+- An unknown / new number alone is NEVER a reason for SUSPICIOUS or SCAM.
+- People meet new folks and exchange numbers. A stranger saying "Hi, how are you?" is SAFE.
+- For that case: say she got a message from a number she may not know, and ask if she knows
+  them — do NOT call it suspicious.
+- Only raise concern when the CONTENT asks for money, SSN/Social Security, passwords, codes,
+  gift cards, lottery/prize fees, odd payment, or pushes shady links / "tap here" tricks.
+
 IMPORTANT: Do NOT mark ordinary friendly chat as suspicious. Most everyday texts are SAFE.
-Default to SAFE unless there is a clear reason to worry. "Is this safe?" does not mean you
-should find a problem. False alarms bother her family — be accurate, not jumpy.
+Default to SAFE unless the message content has a clear risk. "Is this safe?" does not mean
+you should find a problem. False alarms bother her family — be accurate, not jumpy.
 
 verdict rules (use exactly one):
 
-SAFE — normal life messages with no ask for money, codes, passwords, or urgent payment.
+SAFE — normal life messages with no ask for money, codes, passwords, lottery fees, or shady
+links. Includes greetings from unknown numbers.
 Examples that MUST be SAFE:
-- "How are you?" / "Hey, how's it going?" / "Good morning!" / "Thinking of you"
+- "How are you?" / "Hey, how's it going?" / "Good morning!" (even from an unknown number)
 - "Dinner Sunday at 6? Love, Maya" / "Can you call me later?" / "Thanks!" / "Happy birthday"
 - Photos, jokes, church reminders, grocery lists, normal family check-ins
-- Expected notices she already knows about (doctor appointment reminder, school pickup) with
-  no odd payment ask and no strange web address to tap
-For SAFE: action can be "No need to worry." or "You can reply if you want."
+For SAFE from a known contact: action "No need to worry."
+For SAFE from an unknown/new number with only a friendly hello: headline "It looks friendly.",
+action "Do you know this person?" — do not narrate what the message is not.
 
-SUSPICIOUS — something feels off, but it is not clearly a scam yet. Family should glance.
-Use SUSPICIOUS only when at least one of these is present:
-- Unexpected web address or "tap here / click here" from an unknown sender
-- Mild urgency or odd wording without a clear money ask
-- Unknown number claiming to be a company or a relative, but no payment demand yet
-- Message that does not match how that person usually writes, with a request that is unclear
-Do NOT use SUSPICIOUS for plain greetings or ordinary plans.
+SUSPICIOUS — the CONTENT feels off, but it is not clearly a scam yet. Family should glance.
+Use SUSPICIOUS only when the message itself has a risk clue:
+- Unexpected web address or "tap here / click here"
+- Mild urgency or odd company claim without a clear money ask yet
+- Someone claiming to be a relative/company in a weird way, but no payment demand yet
+Do NOT use SUSPICIOUS for plain greetings, ordinary plans, or "unknown number" alone.
 
-SCAM — clear attempt to steal money, gift cards, passwords, one-time codes, bank details, or
-to rush her into paying. Examples that MUST be SCAM:
-- "Grandson in jail / car crash — send money / gift cards / don't tell anyone"
-- "I lost my phone — this is my new number — send cash"
-- Fake delivery, bank, IRS, Social Security, Apple/Amazon refund needing payment or a code
-- Tech support: "your computer is locked, buy gift cards"
+SCAM — clear attempt to steal money, gift cards, passwords, one-time codes, SSN, bank details,
+lottery/prize fees, or to rush her into paying / tapping a bad link.
+Examples that MUST be SCAM:
+- "Grandson in jail — send money / gift cards / don't tell anyone"
+- Fake delivery, bank, IRS, Social Security, Apple/Amazon needing payment or a code
 - Prize / "you won" that needs a fee, or "verify your account" with a shady link
+
+scene (pick one that matches the story — used for the on-screen Odyssey character):
+- harbor: ordinary safe message / known friendly chat
+- stranger: friendly hello from an unknown/new number (SAFE, just check if she knows them)
+- siren: lottery, prize, "you won", too-good-to-be-true lure
+- circe: shady link, "tap here", account verify / refund trick
+- cyclops: impersonation / family-emergency money ask
+- storm: gift cards, wire money, urgent payment pressure
+- watch: other suspicious content that needs a careful look
 
 If it looks like impersonation of family, say so plainly. Do not treat a familiar-sounding
 voice as proof of identity.
@@ -117,16 +153,18 @@ voice as proof of identity.
 Fill the fields:
 - item: "text", "email" or "screen" (the one you judged).
 - sender: who it is from, as shown (name, number or address). "unknown" if not visible.
-- headline: at most 7 words, the answer first. e.g. "This text is a scam." / "This looks safe."
-- reason: one short plain sentence saying why (name the concrete clue: money ask, odd link,
-  or for SAFE say it is ordinary friendly chat).
-- action: one short plain sentence. For SAFE: reassure. For SCAM/SUSPICIOUS: do not tap,
-  do not send money, wait for family.
-- speech: exactly what you say out loud: the headline, then the reason, then the action.
-  Three short sentences, one idea each, 30 words in total at most. Use contractions.
-  SAFE example: "This looks safe. It's just a friendly hello. No need to worry."
-  SCAM example: "This text is a scam. The post office never asks for money by text. Please
-  don't tap anything in it."
+- headline: at most 6 words, the answer first.
+- reason: one short plain sentence for the screen/family log (not spoken). Name the concrete
+  clue if risky; if safe, just say it's friendly or ordinary.
+- action: one short plain sentence — what she should do.
+- speech: ONLY two short sentences — headline, then action. About 12 words max. Do NOT add a
+  middle explanation. Never list what it is not (no "not a lottery", "not asking for money",
+  "no codes", "no odd links"). Keep it brief and speakable.
+  Unknown-hello: "It looks friendly. Do you know this person?"
+  SAFE: "This looks safe. No need to worry."
+  SUSPICIOUS: "Something seems off. Please wait before you reply."
+  SCAM: "This looks like a scam. Please don't tap or send anything."
+- scene: one of harbor, stranger, siren, circe, cyclops, storm, watch.
 
 Style: warm and confident, never scary, never condescending. No jargon: never say "phishing",
 "URL", "domain", "malware" or "link shortener". Never tell her to reply, click or call a number
@@ -198,20 +236,22 @@ def _sentence(s):
 
 
 def tidy(r):
-    """Enforce the speaking style whatever the model returned: answer first,
-    then the reason, then one action. Plain words. About 30 words."""
+    """Keep spoken lines short: answer + what to do. Reason stays on-screen/log only."""
     for k in ("headline", "reason", "action", "speech"):
         v = _sentence(r.get(k))
         for pat, plain in _PLAIN:
             v = re.sub(pat, plain, v, flags=re.I)
         r[k] = v
-    built = " ".join(x for x in (r["headline"], r["reason"], r["action"]) if x)
-    words = len(r["speech"].split())
-    starts_with_answer = r["speech"].lower().startswith(r["headline"].lower().rstrip(".!?"))
-    if not r["speech"] or words > 38 or not starts_with_answer:
-        r["speech"] = built
-    if len(r["speech"].split()) > 38:           # still long: drop the reason's tail
-        r["speech"] = " ".join(x for x in (r["headline"], r["action"]) if x)
+    # Spoken: never the long "why / what it is not" middle.
+    r["speech"] = " ".join(x for x in (r.get("headline"), r.get("action")) if x)
+    # Keep it brief, but never stop in the middle of a sentence.
+    if len(r["speech"].split()) > 20:
+        kept = []
+        for sentence in re.findall(r"[^.!?]+[.!?]+", r["speech"]):
+            if kept and len(" ".join(kept + [sentence]).split()) > 20:
+                break
+            kept.append(sentence.strip())
+        r["speech"] = " ".join(kept) or r.get("headline", "")
     return r
 
 
@@ -229,7 +269,11 @@ _SCAM_CUES = re.compile(
     r"suspended|locked\s+account|account\s+is\s+locked|unusual\s+activity|"
     r"irs|social\s*security|medicare\s+fraud|"
     r"tech\s*support|remote\s+access|"
-    r"you(?:'ve| have)\s+won|claim\s+your\s+prize|"
+    r"you(?:'ve|\s+have)?\s+won|claim\s+your\s+prize|lottery|jackpot|sweepstakes|"
+    r"(?:release|processing|delivery|customs)\s+fee|pay\s+(?:the\s+|a\s+)?\$?\d|"
+    r"credit\s*card|debit\s*card|card\s+number|cvv|routing\s+number|"
+    r"bank\s+(?:account|details|info)|account\s+number|\bssn\b|"
+    r"free\s+iphone|won\s+an?\s+\w+|"
     r"bail|in\s+(?:jail|prison)|car\s+(?:accident|crash)|"
     r"lost\s+my\s+phone|new\s+number|don(?:'?t|ot)\s+tell|"
     r"grandson|granddaughter.{0,40}(?:money|gift|bail|jail|hospital)|"
@@ -277,10 +321,28 @@ _SAFE_LIFE = re.compile(
     r")\b",
     re.I)
 
+_LOTTERY = re.compile(
+    r"\b(?:you(?:'ve|\s+have)?\s+won|winner|lottery|jackpot|prize|sweepstakes|"
+    r"claim\s+your\s+(?:prize|reward)|congratulations?.{0,40}won)\b", re.I)
+_IMPERSONATION = re.compile(
+    r"\b(?:grandson|granddaughter|nephew|niece|i(?:'m| am) your|"
+    r"lost\s+my\s+phone|new\s+number|in\s+(?:jail|prison|hospital)|"
+    r"car\s+(?:accident|crash)|bail|don(?:'?t|ot)\s+tell)\b", re.I)
+_LINK_TRICK = re.compile(
+    r"https?://|www\.|\b[\w-]+\.(?:top|xyz|click|zip|mov)\b|"
+    r"\b(?:click|tap)\s+here\b|\bverify\s+(?:your\s+)?account\b|"
+    r"\bconfirm\s+your\s+refund\b", re.I)
+_PAYMENT = re.compile(
+    r"\b(?:gift\s*cards?|wire|western\s*union|zelle|venmo|cash\s*app|"
+    r"send\s+(?:me\s+)?(?:\$|money|cash)|pay\s+(?:now|immediately|\$)|"
+    r"ssn|social\s*security|password|one[-\s]?time\s*code)\b", re.I)
+
 
 def _message_body(text=None, email=None, item=None):
     """Best-effort plain body for the item being judged."""
     raw = ""
+    if item == "screen":
+        return ""        # judged from the screenshot: the latest text/email is not what she asked about
     if item == "email" and email:
         raw = email
     elif text:
@@ -290,20 +352,67 @@ def _message_body(text=None, email=None, item=None):
     # Drop our "From:/Received:/Subject:" wrappers for cue matching.
     lines = []
     for line in (raw or "").splitlines():
-        if re.match(r"^(From|Received|Subject)\s*:", line, re.I):
+        if re.match(r"^(From|Received|Subject|Sender status)\s*:", line, re.I):
             continue
         lines.append(line)
     return "\n".join(lines).strip()
 
 
+def _extract_sender(text=None, email=None, fallback=""):
+    for blob in (text, email):
+        if not blob:
+            continue
+        m = re.search(r"^From:\s*(.+)$", blob, re.I | re.M)
+        if m:
+            return m.group(1).strip()
+    return (fallback or "").strip()
+
+
+def _is_unknown_sender(sender: str) -> bool:
+    """True for blank/unknown labels or bare phone numbers (new contact)."""
+    s = (sender or "").strip()
+    if not s:
+        return True
+    low = s.lower()
+    if low in ("unknown", "unknown number", "unknown sender", "unknown email"):
+        return True
+    # Phone-looking sender with no real name → treat as new/unknown contact
+    if not re.search(r"[A-Za-z]{2,}", s) and re.search(r"\d", s):
+        return True
+    return False
+
+
+# Links to well-known sites are ordinary. Only the exact site counts, so a lookalike
+# such as "youtube.com.claim-prize.top" is still treated as a risky link.
+_TRUSTED_SITES = (
+    "youtube.com", "youtu.be", "google.com", "goo.gl", "apple.com", "icloud.com",
+    "amazon.com", "facebook.com", "fb.com", "instagram.com", "whatsapp.com", "tiktok.com",
+    "x.com", "twitter.com", "linkedin.com", "pinterest.com", "reddit.com", "wikipedia.org",
+    "spotify.com", "netflix.com", "zoom.us", "nytimes.com", "cnn.com", "bbc.com", "npr.org",
+    "weather.com", "usps.com", "ups.com", "fedex.com", "walmart.com", "target.com",
+    "microsoft.com", "github.com", "uta.edu",
+)
+_URL = re.compile(r"(?:https?://|www\.)[^\s]+", re.I)
+
+
+def _is_trusted_link(url: str) -> bool:
+    host = re.sub(r"^https?://", "", url.strip(), flags=re.I).split("/")[0].split("?")[0]
+    host = host.split("@")[-1].split(":")[0].lower()
+    if host.startswith("www."):
+        host = host[4:]
+    return any(host == d or host.endswith("." + d) for d in _TRUSTED_SITES)
+
+
+def _strip_trusted_links(body: str) -> str:
+    return _URL.sub(lambda m: " " if _is_trusted_link(m.group(0)) else m.group(0), body or "")
+
+
 def _risk_score(body: str) -> dict:
-    body = (body or "").strip()
+    body = _strip_trusted_links(body).strip()
     if not body:
         return {"scam": 0, "sus": 0, "safe_chat": False, "safe_life": False, "empty": True}
     scam_hits = len(_SCAM_CUES.findall(body))
-    # URLs already counted in _SCAM_CUES via https?/www/tld — don't double-count lightly
     sus_hits = len(_SUS_CUES.findall(body))
-    # Short friendly messages: match whole body as safe chat
     compact = re.sub(r"\s+", " ", body).strip()
     safe_chat = bool(_SAFE_CHAT.match(compact)) or (
         len(compact.split()) <= 12 and _SAFE_LIFE.search(compact)
@@ -316,62 +425,114 @@ def _risk_score(body: str) -> dict:
         "safe_life": safe_life,
         "empty": False,
         "preview": compact[:120],
+        "lottery": bool(_LOTTERY.search(body)),
+        "impersonation": bool(_IMPERSONATION.search(body)),
+        "link_trick": bool(_LINK_TRICK.search(body)),
+        "payment": bool(_PAYMENT.search(body)),
     }
 
 
+def assign_scene(r, body: str = "", unknown_sender: bool = False) -> str:
+    """Pick an Odyssey scene from content + verdict (content first)."""
+    verdict = r.get("verdict", "SAFE")
+    score = _risk_score(body) if body else {"lottery": False, "impersonation": False,
+                                            "link_trick": False, "payment": False,
+                                            "safe_chat": False, "scam": 0}
+    if verdict == "SAFE":
+        if unknown_sender and (score.get("safe_chat") or score.get("scam", 0) == 0):
+            return "stranger"
+        return "harbor"
+    if score.get("lottery"):
+        return "siren"
+    if score.get("impersonation"):
+        return "cyclops"
+    if score.get("link_trick"):
+        return "circe"
+    if score.get("payment") or verdict == "SCAM":
+        return "storm"
+    return "watch"
+
+
 def calibrate_verdict(r, text=None, email=None):
-    """Correct obvious model mistakes: ordinary hellos aren't scams; clear scams aren't safe."""
+    """Correct model mistakes: judge message content first; unknown number ≠ risk."""
     if r.get("error"):
+        r.setdefault("scene", "watch")
         return r
     body = _message_body(text, email, r.get("item"))
+    extracted = _extract_sender(text, email)
+    sender = (r.get("sender") or "").strip() or extracted
+    if extracted and (_is_unknown_sender(sender) or not sender):
+        sender = extracted
+    if sender:
+        r["sender"] = sender
+    unknown = _is_unknown_sender(r.get("sender", "")) or _is_unknown_sender(extracted)
     score = _risk_score(body)
     before = r.get("verdict")
     after = before
 
     if score["empty"]:
+        r["scene"] = assign_scene(r, body, unknown)
         return r
 
-    # Downgrade false alarms on clearly friendly chat.
-    if score["scam"] == 0 and (score["safe_chat"] or (score["safe_life"] and score["sus"] == 0)):
-        if before in ("SCAM", "SUSPICIOUS"):
-            after = "SAFE"
+    # Anything about prizes, payments, pretending to be family, or a risky link is never
+    # treated as "just friendly chat", whatever polite words surround it.
+    risky = bool(score.get("lottery") or score.get("payment") or score.get("impersonation")
+                 or score.get("link_trick"))
+    # A SCAM verdict from the model is only overruled for a pure greeting ("Hi, how are you?").
+    may_calm = not risky and (before != "SCAM" or score["safe_chat"])
+
+    # Content-first: friendly chat is SAFE even from a brand-new number.
+    if may_calm and score["scam"] == 0 and (score["safe_chat"] or (score["safe_life"] and score["sus"] == 0)):
+        after = "SAFE"
+        if unknown:
+            r["headline"] = "It looks friendly."
+            r["reason"] = "Friendly message from a number that may be new."
+            r["action"] = "Do you know this person?"
+            r["calibrated"] = "unknown_hello"
+        elif before in ("SCAM", "SUSPICIOUS"):
             r["headline"] = "This looks safe."
-            r["reason"] = "It's ordinary friendly chat, with no ask for money or codes."
+            r["reason"] = "Ordinary friendly chat."
             r["action"] = "No need to worry."
-            r["speech"] = ("This looks safe. It's just a normal message. "
-                           "No need to worry.")
             r["calibrated"] = "downgrade_safe"
+    # Never keep SUSPICIOUS/SCAM solely because the sender is unknown when content is clean.
+    elif may_calm and score["scam"] == 0 and score["sus"] == 0 and before == "SUSPICIOUS":
+        after = "SAFE"
+        if unknown:
+            r["headline"] = "It looks friendly."
+            r["reason"] = "Clean message from a number that may be new."
+            r["action"] = "Do you know this person?"
+        else:
+            r["headline"] = "This looks safe."
+            r["reason"] = "Ordinary message."
+            r["action"] = "No need to worry."
+        r["calibrated"] = "content_clean"
     # Upgrade missed scams when strong cues are present.
     elif score["scam"] >= 2 and before == "SAFE":
         after = "SCAM"
         r["headline"] = "This looks like a scam."
-        r["reason"] = "It asks for money, codes, or pushes a risky link."
+        r["reason"] = "Asks for money, codes, or a risky link."
         r["action"] = "Please don't tap or send anything."
-        r["speech"] = ("This looks like a scam. It asks for money or private details. "
-                       "Please don't tap or send anything.")
         r["calibrated"] = "upgrade_scam"
     elif score["scam"] == 1 and before == "SAFE":
         after = "SUSPICIOUS"
         r["headline"] = "Something seems off."
-        r["reason"] = "There's a risk clue, so family should take a quick look."
-        r["action"] = "Please wait before you reply or tap."
-        r["speech"] = ("Something seems off. There's a risk clue in it. "
-                       "Please wait before you reply or tap.")
+        r["reason"] = "A risk clue is in the message."
+        r["action"] = "Please wait before you reply."
         r["calibrated"] = "upgrade_suspicious"
-    # Friendly chat with only a mild "urgent" word and no scam cues stays SAFE.
-    elif score["scam"] == 0 and score["safe_life"] and before == "SUSPICIOUS" and score["sus"] <= 1:
+    elif may_calm and score["scam"] == 0 and score["safe_life"] and before == "SUSPICIOUS" and score["sus"] <= 1:
         after = "SAFE"
-        r["headline"] = "This looks safe."
-        r["reason"] = "It reads like a normal message from someone you know."
-        r["action"] = "No need to worry."
-        r["speech"] = ("This looks safe. It reads like a normal message. "
-                       "No need to worry.")
+        r["headline"] = "This looks safe." if not unknown else "It looks friendly."
+        r["reason"] = "Normal everyday message."
+        r["action"] = "Do you know this person?" if unknown else "No need to worry."
         r["calibrated"] = "downgrade_safe_life"
 
     r["verdict"] = after
-    if after != before:
-        log("calibrated verdict %s -> %s (%s)" % (before, after, score.get("preview", "")))
-        r = tidy(r)
+    r["scene"] = assign_scene(r, body, unknown)
+    if after != before or r.get("calibrated"):
+        log("calibrated %s -> %s scene=%s (%s)" % (
+            before, after, r["scene"], score.get("preview", "")))
+    # Always rebuild speech as short headline + action (drop long "why not" middle).
+    r = tidy(r)
     return r
 
 
@@ -438,9 +599,10 @@ def attach_pattern_to_latest(pattern: dict):
 # ---------- family message ----------
 
 def should_tell_family(r):
-    """Message the family for a scam, for something suspicious, or when the check
-    itself failed. A safe verdict stays quiet (it still shows on the dashboard)."""
-    return bool(r.get("error")) or r["verdict"] in ("SCAM", "SUSPICIOUS")
+    """Message the family for scam/suspicious only. Errors are not risk alerts."""
+    if r.get("error") or r.get("conversational"):
+        return False
+    return r.get("verdict") in ("SCAM", "SUSPICIOUS")
 
 
 def family_message(r):
@@ -448,13 +610,13 @@ def family_message(r):
     item, sender, why = r["item"], r["sender"], r["reason"]
     if r.get("error"):
         return ("%s here. %s %s asked me to check something, but I could not look at it "
-                "properly. Could you take a look with her?" % (app, hi, who))
+                "properly. Could you take a look with them?" % (app, hi, who))
     if r["verdict"] == "SCAM":
         return ("\U0001F6A8 %s alert. %s %s just got a SCAM %s from %s. %s "
-                "I told her not to respond. Please call her." % (app, hi, who, item, sender, why))
+                "I told them not to respond. Please call them." % (app, hi, who, item, sender, why))
     if r["verdict"] == "SUSPICIOUS":
         return ("\u26A0\uFE0F %s check-in. %s %s got a %s from %s that looks a bit off. %s "
-                "Could you check in with her?" % (app, hi, who, item, sender, why))
+                "Could you check in with them?" % (app, hi, who, item, sender, why))
     return ("\u2705 %s FYI. %s %s asked about a %s from %s. It looks safe. %s"
             % (app, hi, who, item, sender, why))
 
@@ -463,15 +625,25 @@ def family_message(r):
 
 ui_hide = None   # set by app.py when the native window exists
 ui_pop = None
+wake_shot = (0, None)   # (time, JPEG bytes) captured at the moment of waking
+
+def show_result(r):
+    """Put a verdict on the screen."""
+    publish(r["verdict"].lower(), device=r.get("device", "mac"), headline=r["headline"],
+            reason=r["reason"], action=r["action"], sender=r["sender"], item=r["item"],
+            scene=r.get("scene", "harbor"),
+            pattern=r.get("pattern"), offer_verify=r.get("offer_verify"))
+
 
 def run_check(device="mac", question="", text=None, email=None, image_b64=None,
-              image_bytes=None, skip_memory=False):
+              image_bytes=None, skip_memory=False, silent=False):
     """Returns the /check response dict. Always includes "verdict" and "speech".
 
     skip_memory: when True, the caller (conversation layer) owns scam-memory matching.
     """
     device = (device or "mac").lower()
-    publish("thinking", device=device)
+    if not silent:               # silent: the background guard decides what to show
+        publish("thinking", device=device)
 
     if image_b64 and not image_bytes:
         try:
@@ -488,14 +660,16 @@ def run_check(device="mac", question="", text=None, email=None, image_b64=None,
         r = calibrate_verdict(r, text=text, email=email)
     except Exception as e:
         log("check failed:", e)
+        # Failure ≠ risk. Don't call it suspicious before we could even look.
         r = {
-            "verdict": "SUSPICIOUS", "item": "screen", "sender": "unknown",
+            "verdict": "SAFE", "item": "screen", "sender": "unknown",
             "headline": "I couldn't check this.",
             "reason": "I could not look at it properly just now.",
-            "action": "Please wait and ask someone you trust first.",
-            "speech": "I'm sorry. I couldn't check this one just now. "
-                      "Please don't act on it yet. Ask someone you trust first.",
+            "action": "Please try again in a moment.",
+            "speech": "I couldn't check this just now. Please try again.",
+            "scene": "harbor",
             "error": str(e),
+            "conversational": True,
         }
 
     # Scam Memory + verify offer (skipped when the conversation layer owns them).
@@ -521,7 +695,8 @@ def run_check(device="mac", question="", text=None, email=None, image_b64=None,
                     if not speech.endswith("."):
                         speech += "."
                     combined = (speech + " " + extra).strip()
-                    if len(combined.split()) <= 55:
+                    # Keep spoken line short; pattern detail stays in r["pattern"].
+                    if len(combined.split()) <= 22:
                         r["speech"] = combined
         except Exception as e:
             log("scam memory skipped:", e)
@@ -545,10 +720,12 @@ def run_check(device="mac", question="", text=None, email=None, image_b64=None,
             log("verify offer skipped:", e)
 
     r["device"] = device
-    publish(r["verdict"].lower(), device=device, headline=r["headline"], reason=r["reason"],
-            action=r["action"], sender=r["sender"], item=r["item"],
-            pattern=r.get("pattern"), offer_verify=r.get("offer_verify"))
-    if device != "mac":
+    if not r.get("scene"):
+        _body = "\n".join(x for x in (text or "", email or "") if x)
+        r["scene"] = assign_scene(r, _body, _is_unknown_sender(r.get("sender", "")))
+    if not silent:
+        show_result(r)
+    if device != "mac" and not silent:
         idle_later(15)  # the Mac flow goes idle itself after it finishes speaking
 
     doc = dict(r, question=question or "", has_image=bool(image_bytes),
@@ -572,7 +749,10 @@ def run_check(device="mac", question="", text=None, email=None, image_b64=None,
             if r.get("offer_verify"):
                 msg += ("\n\n%s offered to verify with a trusted contact. "
                         "Watch for a verification request." % config.APP_NAME)
-            mac.send_imessage(config.FAMILY_PHONE, msg)
+            if config.FAMILY_PHONE:
+                mac.send_imessage(config.FAMILY_PHONE, msg)
+            else:
+                log("no emergency contact on the account: nobody messaged")
         else:
             log("safe: family not messaged")
     threading.Thread(target=_after, daemon=True).start()
@@ -596,7 +776,8 @@ def mac_check(question="", speak=True, before_speaking=None):
     t, e = mac.latest_text(), mac.latest_email()
     text = email = None
     if t:
-        text = "From: %s\nReceived: %d minutes ago\n\n%s" % (t["sender"], t["minutes_ago"], t["body"])
+        text = "From: %s\nSender status: %s\nReceived: %d minutes ago\n\n%s" % (
+            t["sender"], mac.sender_status(t), t["minutes_ago"], t["body"])
     if e:
         email = "From: %s\nSubject: %s\n\n%s" % (e["sender"], e["subject"], e["body"])
     log("context: text=%s email=%s screenshot=%s" % (bool(t), bool(e), bool(shot)))

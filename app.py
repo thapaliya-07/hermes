@@ -27,10 +27,12 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import auth
 import checker
 import config
 import listener
 import voice
+import watcher
 from mac import log
 
 app = FastAPI(title=config.APP_NAME)
@@ -83,11 +85,79 @@ def converse(req: ConverseRequest, request: Request):
     return conversation.turn(req.utterance, session_id=req.session_id, speak=req.speak)
 
 
+@app.post("/show")
+def show(request: Request):
+    """Bring the window to the front (used when the app is opened again while running)."""
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Only from this Mac.")
+    if checker.ui_pop:
+        checker.ui_pop()
+    return {"ok": True}
+
+
+class AuthRequest(BaseModel):
+    name: str = ""
+    phone: str = ""
+    dob: str = ""
+    code: str = ""
+    ticket: str = ""
+    password: str = ""
+    contact_name: str = ""
+    contact_phone: str = ""
+
+
+def _local_only(request):
+    if request.client and request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "Accounts are managed on the Mac itself.")
+
+
+_AUTH_STEPS = {
+    "signup": lambda r: auth.start_signup(r.name, r.phone, r.dob),
+    "resend": lambda r: auth.resend(r.phone),
+    "verify": lambda r: auth.verify_code(r.phone, r.code),
+    "finish": lambda r: auth.finish_signup(r.phone, r.ticket, r.password,
+                                           r.contact_name, r.contact_phone),
+    "login":  lambda r: auth.login(r.phone, r.password),
+    "forgot": lambda r: auth.start_reset(r.phone),
+    "reset":  lambda r: auth.reset_password(r.phone, r.ticket, r.password),
+    "contact": lambda r: auth.set_contact(r.contact_name, r.contact_phone),
+    "logout": lambda r: auth.logout(),
+}
+
+
+@app.get("/api/auth/state")
+def auth_state(request: Request):
+    _local_only(request)
+    return auth.status()
+
+
+@app.post("/api/auth/{step}")
+def auth_step(step: str, req: AuthRequest, request: Request):
+    """Sign-up, one-time code, password, sign-in and reset. Problems the person can
+    fix come back as {"ok": false, "error": "..."} to show on screen."""
+    _local_only(request)
+    if step not in _AUTH_STEPS:
+        raise HTTPException(404, "Unknown step.")
+    try:
+        out = _AUTH_STEPS[step](req)
+    except auth.AuthError as e:
+        return {"ok": False, "error": str(e)}
+    return dict(out or {}, ok=True, state=auth.status())
+
+
 @app.post("/ask")
 def ask(request: Request):
     if request.client and request.client.host not in ("127.0.0.1", "::1"):
         raise HTTPException(403, "The button only works on the Mac itself.")
-    threading.Thread(target=listener.handle, args=("Is this safe?",), daemon=True).start()
+    if not auth.current():
+        raise HTTPException(401, "Please sign in first.")
+    # Neutral ask: look at the message first, then judge — don't bias toward "suspicious".
+    threading.Thread(
+        target=listener.handle,
+        args=("Please look at what is on my screen and tell me if it is safe.",),
+        kwargs={"ack": False},               # the swipe needs no spoken "Mm-hmm"
+        daemon=True,
+    ).start()
     return {"ok": True}
 
 
@@ -224,7 +294,7 @@ def api_checks(limit: int = 50):
 
 def main():
     faulthandler.enable()   # if Python ever crashes, print where
-    for name in ("GEMINI_API_KEY", "MONGODB_URI", "FAMILY_PHONE"):
+    for name in ("GEMINI_API_KEY", "MONGODB_URI"):
         if not getattr(config, name):
             log("WARNING: %s is not set in .env" % name)
     # Stop early with a clear message if Trojan is already running.
@@ -234,14 +304,28 @@ def main():
     try:
         probe.bind((config.HOST, config.PORT))
     except OSError:
-        log("Port %d is already in use. It is probably already running in another "
-            "window. Close that one first (Ctrl+C), then start again." % config.PORT)
+        # Already running: opening it again just brings the window to the front.
+        try:
+            import urllib.request
+            urllib.request.urlopen(urllib.request.Request(
+                "http://127.0.0.1:%d/show" % config.PORT, data=b"", method="POST"), timeout=3)
+            log("%s is already running. Brought its window to the front." % config.APP_NAME)
+            sys.exit(0)
+        except SystemExit:
+            raise
+        except Exception:
+            log("Port %d is already in use by something else. Close it, then start again."
+                % config.PORT)
         sys.exit(1)
     finally:
         probe.close()
+    auth.apply_to_config()      # alerts go to the signed-in person's emergency contact
+    if not auth.current():
+        log("nobody is signed in yet. The window opens so you can sign in.")
     voice.prepare()
     if "--no-mic" not in sys.argv:
         listener.start()
+    watcher.start()
     log("Grandma UI:  http://localhost:%d/" % config.PORT)
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -279,6 +363,7 @@ def open_window():
     import socket
     import time
     background = "--show" not in sys.argv
+    start_hidden = background and bool(auth.current())   # signed out: show the sign-in screen
     url = "http://127.0.0.1:%d/" % config.PORT
     for _ in range(50):                  # wait up to 5 s for the server to be ready
         try:
@@ -289,9 +374,9 @@ def open_window():
     try:
         import webview
         window = webview.create_window(config.APP_NAME, url, width=420, height=660,
-                                       min_size=(380, 600), on_top=True, hidden=background,
+                                       min_size=(380, 600), on_top=True, hidden=start_hidden,
                                        background_color="#F5F0E1", text_select=False)
-        state = {"visible": not background}
+        state = {"visible": not start_hidden}
 
         def hide():
             """Take the window off screen (used before the screenshot, and when tucking away)."""
@@ -332,7 +417,7 @@ def open_window():
                 st = checker.latest_event()[1].get("state")
                 if st != "idle":
                     was_busy = True
-                elif was_busy and state["visible"]:
+                elif was_busy and state["visible"] and auth.current():
                     was_busy = False
                     time.sleep(TUCK_AWAY_SECONDS)
                     if checker.latest_event()[1].get("state") == "idle":
@@ -374,7 +459,7 @@ def open_window():
         threading.Event().wait()         # keep serving until Ctrl+C
 
 
-TUCK_AWAY_SECONDS = 20
+TUCK_AWAY_SECONDS = 5    # after the answer is done, stay this long, then vanish (like Siri)
 
 
 if __name__ == "__main__":

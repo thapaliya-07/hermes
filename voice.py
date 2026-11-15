@@ -1,8 +1,8 @@
 """The voice. Clear, calm, never silent.
 
-Order of preference:
-  1. ElevenLabs (if ELEVENLABS_API_KEY is set)
-  2. Fish Audio (if FISH_API_KEY is set)
+Order of preference (Cal Hacks FaceTimeOS-style clarity first):
+  1. Fish Audio (if FISH_API_KEY is set)  <- same TTS stack as Cal Hacks 12.0 winners
+  2. ElevenLabs (if ELEVENLABS_API_KEY is set)
   3. Gemini's natural voice (free, same GEMINI_API_KEY)   <- the default
   4. macOS `say` with the best installed voice  <- always works, used on any failure
 The wake-up line and the chime are rendered once and cached, so they play instantly."""
@@ -19,7 +19,7 @@ import config
 import mac
 from mac import log
 
-ACK = "I'm here. Let me take a look."
+ACK = "Mm-hmm?"      # the soft "go on" sound, like Siri
 CACHE = config.ROOT / ".cache"
 CHIME = CACHE / "chime.wav"
 
@@ -50,12 +50,27 @@ def _elevenlabs(text):
 
 
 def _fish(text):
-    body = {"text": text, "format": "mp3"}
+    """Fish Audio TTS — clear neural voice (same provider as Cal Hacks FaceTimeOS)."""
+    body = {
+        "text": text,
+        "format": "mp3",
+        "mp3_bitrate": 192,
+        "normalize": True,
+        "latency": "normal",
+        "language": "en",
+        "prosody": {"speed": 0.95, "volume": 0},
+    }
     if config.FISH_VOICE_ID:
         body["reference_id"] = config.FISH_VOICE_ID
-    r = requests.post("https://api.fish.audio/v1/tts",
-                      headers={"Authorization": "Bearer " + config.FISH_API_KEY},
-                      json=body, timeout=8)
+    r = requests.post(
+        "https://api.fish.audio/v1/tts",
+        headers={
+            "Authorization": "Bearer " + config.FISH_API_KEY,
+            "model": "s1",
+        },
+        json=body,
+        timeout=12,
+    )
     r.raise_for_status()
     return r.content
 
@@ -98,10 +113,11 @@ def _gemini(text):
 def _cloud_file(text):
     """Path to an audio file of `text` from a cloud voice, or None (no key / failed)."""
     global _cloud_ok
-    if config.ELEVENLABS_API_KEY:
-        name, fn, ext = "elevenlabs", _elevenlabs, "mp3"
-    elif config.FISH_API_KEY:
+    # Prefer Fish Audio when configured (Cal Hacks clarity), then ElevenLabs, then Gemini.
+    if config.FISH_API_KEY:
         name, fn, ext = "fish", _fish, "mp3"
+    elif config.ELEVENLABS_API_KEY:
+        name, fn, ext = "elevenlabs", _elevenlabs, "mp3"
     elif config.GEMINI_API_KEY and config.GEMINI_VOICE.lower() != "off":
         name, fn, ext = "gemini-" + config.GEMINI_VOICE, _gemini, "wav"
     else:

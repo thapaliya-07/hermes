@@ -13,7 +13,7 @@ import config
 
 CHAT_DB = Path.home() / "Library" / "Messages" / "chat.db"
 _OWN_ALERTS = tuple("%s %s" % (n, k) for n in (config.APP_NAME, "Hermes", "Moly", "Trojan")
-                    for k in ("alert.", "check-in.", "FYI.", "here."))
+                    for k in ("alert.", "check-in.", "FYI.", "here.", "code:"))
 APPLE_EPOCH = 978307200  # seconds between 1970-01-01 and 2001-01-01
 
 
@@ -51,12 +51,14 @@ def _decode_attributed_body(blob):
 
 
 def latest_text():
-    """Returns {"sender", "body", "minutes_ago"} for the newest INCOMING text,
+    """Returns {"sender", "body", "minutes_ago", "known"} for the newest INCOMING text,
     or None. Needs Full Disk Access for the app that runs Python."""
     try:
         con = sqlite3.connect("file:%s?mode=ro" % CHAT_DB, uri=True, timeout=3)
         rows = con.execute(
-            "SELECT m.text, m.attributedBody, h.id, m.date "
+            "SELECT m.text, m.attributedBody, h.id, m.date, "
+            "  (SELECT COUNT(*) FROM message o WHERE o.handle_id = m.handle_id "
+            "   AND o.is_from_me = 1) "
             "FROM message m LEFT JOIN handle h ON m.handle_id = h.ROWID "
             "WHERE m.is_from_me = 0 ORDER BY m.date DESC LIMIT 25"
         ).fetchall()
@@ -64,7 +66,7 @@ def latest_text():
     except Exception as e:
         log("could not read Messages (grant Full Disk Access?):", e)
         return None
-    for text, blob, sender, date in rows:
+    for text, blob, sender, date, replies in rows:
         body = (text or "").strip() or _decode_attributed_body(blob)
         if not body or body == "￼":
             continue
@@ -72,8 +74,120 @@ def latest_text():
             continue   # our own family alert, not something Grandma received
         secs = date / 1e9 if date and date > 1e12 else (date or 0)
         mins = max(0, int((time.time() - (secs + APPLE_EPOCH)) / 60))
-        return {"sender": sender or "unknown number", "body": body[:3000], "minutes_ago": mins}
+        # "known" = she has written back to this sender at least once before
+        return {"sender": sender or "unknown number", "body": body[:3000], "minutes_ago": mins,
+                "known": bool(replies)}
     return None
+
+
+def sender_status(t):
+    """One line for the model: has she ever written to this sender?"""
+    if t.get("known"):
+        return "KNOWN. She has written to this sender before."
+    return "UNKNOWN. She has never written to this sender."
+
+
+# ---------- background guard: new messages, and who is in Contacts ----------
+
+def _chat(sql, args=()):
+    con = sqlite3.connect("file:%s?mode=ro" % CHAT_DB, uri=True, timeout=3)
+    try:
+        return con.execute(sql, args).fetchall()
+    finally:
+        con.close()
+
+
+def _body(text, blob):
+    body = (text or "").strip() or _decode_attributed_body(blob)
+    return "" if body == "\ufffc" else body
+
+
+def last_message_id():
+    """ROWID of the newest message in Messages, or None if it cannot be read."""
+    try:
+        return _chat("SELECT MAX(ROWID) FROM message")[0][0] or 0
+    except Exception as e:
+        log("could not read Messages (grant Full Disk Access?):", e)
+        return None
+
+
+def incoming_since(rowid):
+    """Incoming messages newer than `rowid`, oldest first:
+    [{"id", "sender", "body"}]. Our own alerts and codes are left out."""
+    try:
+        rows = _chat(
+            "SELECT m.ROWID, m.text, m.attributedBody, h.id "
+            "FROM message m LEFT JOIN handle h ON m.handle_id = h.ROWID "
+            "WHERE m.is_from_me = 0 AND m.ROWID > ? ORDER BY m.ROWID LIMIT 50", (rowid,))
+    except Exception as e:
+        log("could not read Messages:", e)
+        return []
+    out = []
+    for rid, text, blob, sender in rows:
+        body = _body(text, blob)
+        if any(tag in body[:48] for tag in _OWN_ALERTS):
+            body = ""
+        out.append({"id": rid, "sender": sender or "", "body": body[:3000]})
+    return out
+
+
+def thread_tail(sender, before_id, limit=6):
+    """The last few messages exchanged with `sender` before message `before_id`,
+    oldest first: [(from_me, body)]. Gives the model the conversation so far."""
+    try:
+        rows = _chat(
+            "SELECT m.is_from_me, m.text, m.attributedBody "
+            "FROM message m JOIN handle h ON m.handle_id = h.ROWID "
+            "WHERE h.id = ? AND m.ROWID < ? ORDER BY m.ROWID DESC LIMIT ?",
+            (sender, before_id, limit))
+    except Exception:
+        return []
+    out = [(bool(me), _body(t, b)[:300]) for me, t, b in rows]
+    return [x for x in reversed(out) if x[1]]
+
+
+_contacts = (0, None)     # (time read, set of saved numbers / emails)
+
+
+def _digits10(s):
+    d = "".join(c for c in (s or "") if c.isdigit())
+    return d[-10:] if len(d) >= 7 else ""
+
+
+def saved_contacts():
+    """Every phone number (last 10 digits) and email saved in Contacts, or None if
+    Contacts cannot be read. Read-only, re-read at most every 20 seconds."""
+    global _contacts
+    if time.time() - _contacts[0] < 20:
+        return _contacts[1]
+    base = Path.home() / "Library" / "Application Support" / "AddressBook"
+    found, ok = set(), False
+    for db in [base / "AddressBook-v22.abcddb"] + sorted(base.glob("Sources/*/AddressBook-v22.abcddb")):
+        if not db.exists():
+            continue
+        try:
+            con = sqlite3.connect("file:%s?mode=ro" % db, uri=True, timeout=3)
+            for (n,) in con.execute("SELECT ZFULLNUMBER FROM ZABCDPHONENUMBER"):
+                if _digits10(n):
+                    found.add(_digits10(n))
+            for (a,) in con.execute("SELECT ZADDRESS FROM ZABCDEMAILADDRESS"):
+                if a:
+                    found.add(a.strip().lower())
+            con.close()
+            ok = True
+        except Exception as e:
+            log("could not read Contacts:", e)
+    _contacts = (time.time(), found if ok else None)
+    return _contacts[1]
+
+
+def in_contacts(sender):
+    """True / False, or None when Contacts cannot be read."""
+    saved = saved_contacts()
+    if saved is None:
+        return None
+    s = (sender or "").strip().lower()
+    return (s in saved) if "@" in s else (_digits10(s) in saved)
 
 
 # ---------- latest email (Mail.app via AppleScript) ----------
@@ -153,13 +267,25 @@ def best_voice():
     except Exception:
         pass
     pick = ""
-    for tag in ("(Premium)", "(Enhanced)"):
-        for n in names:
-            if tag in n:
-                pick = n
-                break
-        if pick:
+    # Prefer clear, natural English voices (Enhanced/Premium first).
+    for want in (
+        "Zoe (Premium)", "Zoe (Enhanced)", "Zoe",
+        "Nora (Premium)", "Nora (Enhanced)", "Nora",
+        "Samantha (Premium)", "Samantha (Enhanced)", "Samantha",
+        "Ava (Premium)", "Ava (Enhanced)", "Ava",
+        "Allison (Premium)", "Allison (Enhanced)", "Allison",
+    ):
+        if want in names:
+            pick = want
             break
+    if not pick:
+        for tag in ("(Premium)", "(Enhanced)"):
+            for n in names:
+                if tag in n:
+                    pick = n
+                    break
+            if pick:
+                break
     _voice_cache = pick or ("Samantha" if "Samantha" in names else "")
     log("voice:", _voice_cache or "system default")
     return _voice_cache

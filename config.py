@@ -62,9 +62,15 @@ ELEVENLABS_API_KEY = _get("ELEVENLABS_API_KEY")
 FISH_API_KEY = _get("FISH_API_KEY")
 ELEVENLABS_VOICE_ID = _get("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # "Rachel": calm, clear
 # Human-sounding voice from Gemini, using the same free GEMINI_API_KEY. "off" disables it.
-GEMINI_VOICE = _get("GEMINI_VOICE", "Sulafat")   # warm. Others: Achernar, Vindemiatrix, Aoede, Kore
+GEMINI_VOICE = _get("GEMINI_VOICE", "Kore")   # clear/firm. Others: Aoede, Sulafat, Achernar
 GEMINI_TTS_MODEL = _get("GEMINI_TTS_MODEL", "gemini-3.8-flash-lite-tts")
 FISH_VOICE_ID = _get("FISH_VOICE_ID")  # empty = Fish default voice
+
+# Accounts. AUTH_DEV_CODES=1 prints the one-time code in the terminal instead of
+# sending it by iMessage (for testing only).
+AUTH_DEV_CODES = _get("AUTH_DEV_CODES").lower() in ("1", "true", "yes", "on")
+# Background guard: check new messages from numbers not saved in Contacts. "off" disables it.
+WATCH_MESSAGES = _get("WATCH_MESSAGES", "on").lower() not in ("0", "off", "false", "no")
 
 HOST = _get("HOST", "0.0.0.0")  # 0.0.0.0 so the iPhone Shortcut can reach the Mac
 PORT = int(_get("PORT", "8000"))

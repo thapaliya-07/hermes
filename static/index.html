@@ -43,6 +43,15 @@
   body[data-state="suspicious"] { --tone: #8a6430; --energy: .75; }
   body[data-state="scam"]       { --tone: #8a3d34; --energy: .92; }
 
+  /* Scene-tuned tones (content story overrides state when set) */
+  body[data-scene="harbor"]   { --tone: #2f6b52; --energy: .55; }
+  body[data-scene="stranger"] { --tone: #3d5f7a; --energy: .5; }
+  body[data-scene="siren"]    { --tone: #6b4a7a; --energy: .78; }
+  body[data-scene="circe"]    { --tone: #5a6b3a; --energy: .72; }
+  body[data-scene="cyclops"]  { --tone: #8a5030; --energy: .85; }
+  body[data-scene="storm"]    { --tone: #8a3d34; --energy: .95; }
+  body[data-scene="watch"]    { --tone: #8a6430; --energy: .7; }
+
   * { box-sizing: border-box; cursor: var(--cursor); }
   html, body { height: 100%; margin: 0; }
   body {
@@ -175,25 +184,106 @@
     text-align: center; min-height: 0; z-index: 1;
   }
 
-  .wave-stage {
-    position: relative; width: min(78vw, 280px); height: 132px;
-    margin: 6px 0 26px; flex: none;
+  .stage {
+    position: relative; width: min(82vw, 300px); height: 168px;
+    margin: 4px 0 22px; flex: none;
     opacity: 0; animation: rise .9s var(--ease) .1s forwards;
   }
-  .wave-stage canvas { width: 100%; height: 100%; display: block; }
-  .wave-glow {
-    position: absolute; inset: 12% 8%;
+  .stage-glow {
+    position: absolute; inset: 8% 4%;
     border-radius: 50%;
-    background: radial-gradient(circle, color-mix(in srgb, var(--tone) 18%, transparent), transparent 70%);
-    filter: blur(14px); animation: glow 3.6s var(--soft) infinite;
+    background: radial-gradient(circle, color-mix(in srgb, var(--tone) 20%, transparent), transparent 72%);
+    filter: blur(16px); animation: glow 3.6s var(--soft) infinite;
+    transition: background .7s var(--soft);
   }
-  body[data-state="listening"] .wave-glow,
-  body[data-state="safe"] .wave-glow,
-  body[data-state="suspicious"] .wave-glow,
-  body[data-state="scam"] .wave-glow { animation-duration: 1.2s; }
+  body[data-state="listening"] .stage-glow,
+  body[data-state="safe"] .stage-glow,
+  body[data-state="suspicious"] .stage-glow,
+  body[data-state="scam"] .stage-glow,
+  body[data-scene] .stage-glow { animation-duration: 1.35s; }
   @keyframes glow {
-    0%,100% { opacity: .3; transform: scale(.94); }
-    50% { opacity: .65; transform: scale(1.08); }
+    0%,100% { opacity: .32; transform: scale(.94); }
+    50% { opacity: .7; transform: scale(1.08); }
+  }
+
+  .chars {
+    position: absolute; inset: 0 0 38% 0;
+    display: grid; place-items: end center;
+    pointer-events: none;
+  }
+  .char {
+    position: absolute; bottom: 0; left: 50%;
+    width: 92px; height: 92px;
+    color: var(--navy);
+    opacity: 0;
+    transform: translateX(-50%) translateY(18px) scale(.86);
+    transition:
+      opacity .7s var(--ease),
+      transform .85s var(--ease),
+      color .6s var(--soft);
+    will-change: transform, opacity;
+  }
+  .char svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .char.on {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  .char .limb { transform-origin: center; transform-box: fill-box; }
+
+  .char-hermes.on .herb { animation: herb-float 2.8s var(--soft) infinite; }
+  .char-traveler.on { animation: approach 4s var(--soft) infinite; }
+  .char-siren.on .hair {
+    transform-origin: 48px 28px; transform-box: fill-box;
+    animation: hair-sway 2.4s var(--soft) infinite;
+  }
+  .char-siren.on .notes { animation: notes 2s var(--soft) infinite; }
+  .char-circe.on .swirl {
+    transform-origin: 46px 58px; transform-box: fill-box;
+    animation: swirl 3.2s linear infinite;
+  }
+  .char-cyclops.on .eye {
+    transform-origin: center; transform-box: fill-box;
+    animation: eye-pulse 1.8s var(--soft) infinite;
+  }
+  .char-poseidon.on .bolt { animation: bolt-flash 1.6s var(--soft) infinite; }
+  .char-owl.on .wing {
+    transform-origin: 28px 52px; transform-box: fill-box;
+    animation: wing 2.6s var(--soft) infinite;
+  }
+
+  @keyframes herb-float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+  @keyframes approach {
+    0%,100% { transform: translateX(-50%) translateY(0) scale(1); }
+    50% { transform: translateX(-48%) translateY(-2px) scale(1.02); }
+  }
+  @keyframes hair-sway {
+    0%,100% { transform: rotate(-4deg); }
+    50% { transform: rotate(5deg); }
+  }
+  @keyframes notes {
+    0%,100% { opacity: .35; transform: translateY(0); }
+    50% { opacity: 1; transform: translateY(-6px); }
+  }
+  @keyframes swirl { to { transform: rotate(360deg); } }
+  @keyframes eye-pulse {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+  }
+  @keyframes bolt-flash {
+    0%,70%,100% { opacity: .35; }
+    75%,85% { opacity: 1; }
+  }
+  @keyframes wing {
+    0%,100% { transform: rotate(0deg); }
+    50% { transform: rotate(-8deg); }
+  }
+
+  .motion-canvas {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 58%;
+    width: 100%; display: block;
   }
 
   .copy { width: 100%; max-width: 19em; opacity: 0; animation: rise .9s var(--ease) .18s forwards; }
@@ -285,7 +375,8 @@
   }
 
   @media (max-height: 560px) {
-    .wave-stage { height: 100px; margin-bottom: 16px; }
+    .stage { height: 128px; margin-bottom: 14px; }
+    .char { width: 72px; height: 72px; }
     .cliff { height: 55%; }
     .ship { width: 120px; }
     h1 { font-size: 24px; }
@@ -297,6 +388,109 @@
     }
     .w { opacity: 1; transform: none; }
   }
+
+  /* ===== Odyssey cursor: a small ship that follows the pointer ===== */
+  html.oc-on, html.oc-on * { cursor: none !important; }
+  .oc-dot, .oc-ship { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 9999;
+                      opacity: 0; transition: opacity .3s var(--soft); will-change: transform; }
+  html.oc-live .oc-dot, html.oc-live .oc-ship { opacity: 1; }
+  .oc-dot { width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+            background: var(--navy); box-shadow: 0 0 0 2px var(--parchment); }
+  .oc-dot::after { content: ""; position: absolute; inset: -9px; border-radius: 50%;
+                   border: 1.500px solid var(--navy); opacity: 0; transform: scale(.4);
+                   transition: opacity .35s var(--soft), transform .45s var(--ease); }
+  html.oc-hover .oc-dot::after { opacity: .55; transform: scale(1); }
+  html.oc-down .oc-dot::after { opacity: .9; transform: scale(.72); }
+  .oc-ship { width: 34px; height: 34px; margin: 6px 0 0 8px; color: var(--navy); }
+  .oc-ship svg { width: 100%; height: 100%; display: block; overflow: visible;
+                 transform-origin: 50% 80%; transition: transform .45s var(--ease); }
+  .oc-ship .sail { fill: var(--parchment); stroke: currentColor; transition: fill .5s var(--soft); }
+  html.oc-hover .oc-ship svg { transform: scale(1.22) translateY(-2px); }
+  html.oc-hover .oc-ship .sail { fill: color-mix(in srgb, var(--tone) 55%, var(--parchment)); }
+  html.oc-down .oc-ship svg { transform: scale(.9) translateY(2px); }
+  .oc-ship .wake { stroke-dasharray: 3 4; animation: oc-wake 1.2s linear infinite; opacity: .5; }
+  @keyframes oc-wake { to { stroke-dashoffset: -14; } }
+
+  /* ===== smoother swipe ===== */
+  .swipe { --p: 0; transition: opacity .35s, box-shadow .45s var(--ease), background .45s var(--soft), transform .45s var(--ease); }
+  .swipe:hover { background: rgba(255,255,255,.55); box-shadow: 0 18px 34px -18px rgba(26,44,68,.5); transform: translateY(-1px); }
+  .swipe:focus-visible { outline: 2px solid var(--navy); outline-offset: 4px; }
+  .swipe-fill {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='12' viewBox='0 0 44 12'%3E%3Cpath d='M0 7 Q5.500 2 11 7 T22 7 T33 7 T44 7' fill='none' stroke='%231a2c44' stroke-opacity='.22' stroke-width='1.500'/%3E%3C/svg%3E") repeat-x 0 calc(100% - 9px) / 44px 12px,
+      linear-gradient(90deg, color-mix(in srgb, var(--tone) 8%, transparent), color-mix(in srgb, var(--tone) 26%, transparent));
+    animation: sea 2.4s linear infinite;
+  }
+  @keyframes sea { to { background-position: 44px calc(100% - 9px), 0 0; } }
+  .swipe.dragging .swipe-label { opacity: calc(1 - var(--p) * 2.400); }
+  .thumb { box-shadow: 0 5px 12px -7px rgba(26,44,68,.55);
+           transition: box-shadow .35s var(--ease), scale .35s var(--ease), translate .5s var(--ease); }
+  .swipe.rest:hover .thumb { animation: nudge 1.500s var(--ease) infinite; box-shadow: 0 9px 18px -8px rgba(26,44,68,.6); }
+  @keyframes nudge { 0%, 100% { translate: 0 0; } 45% { translate: 9px 0; } 70% { translate: -1px 0; } }
+  .swipe.dragging .thumb { scale: 1.07; box-shadow: 0 14px 24px -9px rgba(26,44,68,.6); animation: none; }
+  .swipe.armed .thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 28%, transparent), 0 14px 24px -9px rgba(26,44,68,.6); }
+  .swipe::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+                  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.75) 50%, transparent 70%);
+                  transform: translateX(-100%); }
+  .swipe.success::after { animation: sweep .7s var(--soft) 1; }
+  @keyframes sweep { 0% { opacity: .9; transform: translateX(-100%); } 100% { opacity: 0; transform: translateX(100%); } }
+  .swipe.success .thumb { scale: 1.1; }
+  @media (prefers-reduced-motion: reduce) {
+    .swipe-fill, .swipe.rest:hover .thumb, .oc-ship .wake { animation: none !important; }
+  }
+
+  /* ===== Account screens (same parchment + navy as the rest) ===== */
+  .auth {
+    position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+    padding: 22px 20px; overflow-y: auto;
+    background: linear-gradient(180deg, rgba(247,243,232,.94), rgba(235,228,210,.9));
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    opacity: 0; pointer-events: none; transition: opacity .45s var(--soft);
+  }
+  .auth.on { opacity: 1; pointer-events: auto; }
+  .auth-card { width: 100%; max-width: 340px; margin: auto; }
+  .auth form { animation: auth-in .5s var(--ease) both; }
+  .auth form[hidden] { display: none; }
+  @keyframes auth-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .auth-mark { display: block; width: 52px; height: 52px; margin: 0 auto 12px; border-radius: 14px; }
+  .auth h2 {
+    font-family: var(--display); font-weight: 600; font-size: 23px; letter-spacing: .02em;
+    text-align: center; margin: 0 0 6px; color: var(--navy);
+  }
+  .auth .sub { text-align: center; color: var(--mute); font-size: 14.5px; line-height: 1.45; margin: 0 0 18px; }
+  .auth label { display: block; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--mute); margin: 12px 2px 6px; }
+  .auth input {
+    width: 100%; height: 48px; padding: 0 14px; font: 500 16px var(--sans); color: var(--ink);
+    background: rgba(255,255,255,.6); border: 1px solid var(--line); border-radius: 14px; outline: none;
+    user-select: text; -webkit-user-select: text;
+    transition: border-color .25s, box-shadow .25s, background .25s;
+  }
+  .auth input:focus { border-color: var(--navy-soft); background: #fff; box-shadow: 0 0 0 4px rgba(26,44,68,.1); }
+  .auth input.code { text-align: center; font-size: 26px; letter-spacing: .42em; padding-left: .42em; font-variant-numeric: tabular-nums; }
+  .auth .btn {
+    width: 100%; height: 50px; margin-top: 18px; border: 0; border-radius: 25px;
+    background: var(--navy); color: var(--parchment); font: 600 16px var(--sans); letter-spacing: .01em;
+    box-shadow: 0 8px 20px -10px rgba(26,44,68,.7);
+    transition: transform .3s var(--ease), box-shadow .3s var(--ease), opacity .2s;
+  }
+  .auth .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 24px -10px rgba(26,44,68,.75); }
+  .auth .btn:active { transform: scale(.985); }
+  .auth .btn[disabled] { opacity: .55; transform: none; }
+  .auth .links { display: flex; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .auth .links.center { justify-content: center; }
+  .auth .link { background: none; border: 0; padding: 6px 2px; font: 600 14px var(--sans); color: var(--navy-soft);
+    text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line); }
+  .auth .link:hover { text-decoration-color: currentColor; }
+  .auth .link[disabled] { color: var(--faint); text-decoration: none; }
+  .auth .err { min-height: 20px; margin: 12px 2px 0; font-size: 14px; line-height: 1.4; color: #8a3d34; text-align: center; }
+  .auth .note { font-size: 13px; color: var(--mute); line-height: 1.45; margin: 10px 2px 0; }
+  .auth .who { text-align: center; font-size: 15px; color: var(--ink); margin: 0 0 4px; }
+  header .acct { margin-left: 8px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line);
+    background: rgba(255,255,255,.45); color: var(--navy); font: 600 13px var(--sans); display: none;
+    align-items: center; justify-content: center; padding: 0; transition: background .25s, transform .3s var(--ease); }
+  header .acct:hover { background: #fff; transform: translateY(-1px); }
+  body.signed header .acct { display: inline-flex; }
 </style>
 </head>
 <body data-state="idle">
@@ -349,12 +543,95 @@
     <img class="mark" src="/static/icons/icon-180.png" alt="" width="28" height="28">
     <span class="brand">{{NAME}}</span>
     <span class="pill"><i></i><span id="status">Ready</span></span>
+    <button class="acct" id="acctBtn" type="button" aria-label="Account"></button>
   </header>
 
   <main>
-    <div class="wave-stage" aria-hidden="true">
-      <div class="wave-glow"></div>
-      <canvas id="waves" width="560" height="264"></canvas>
+    <div class="stage" aria-hidden="true">
+      <div class="stage-glow"></div>
+      <div class="chars" id="chars">
+        <!-- Hermes + moly — safe harbor / idle -->
+        <div class="char char-hermes" data-scene="harbor">
+          <svg viewBox="0 0 96 96" fill="currentColor">
+            <ellipse cx="48" cy="88" rx="22" ry="4" opacity=".12"/>
+            <path d="M34 78 L40 48 L56 48 L62 78 Z"/>
+            <circle cx="48" cy="30" r="12"/>
+            <path d="M36 30 Q48 8 60 30" fill="none" stroke="currentColor" stroke-width="3"/>
+            <path class="herb" d="M58 52 L72 36 M72 36 L68 40 M72 36 L76 42 M70 38 L74 34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M40 58 L28 64 M56 58 L68 64" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <!-- Traveler — unknown-number hello -->
+        <div class="char char-traveler" data-scene="stranger">
+          <svg viewBox="0 0 96 96" fill="currentColor">
+            <ellipse cx="48" cy="88" rx="22" ry="4" opacity=".12"/>
+            <path d="M38 78 L42 50 L54 50 L58 78 Z"/>
+            <circle cx="48" cy="34" r="11"/>
+            <path d="M54 42 L70 58 L66 62 L52 48" opacity=".9"/>
+            <path d="M40 58 L32 70" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="72" cy="28" r="3" opacity=".5"/>
+            <circle cx="78" cy="36" r="2" opacity=".35"/>
+          </svg>
+        </div>
+        <!-- Siren — lottery / lure -->
+        <div class="char char-siren" data-scene="siren">
+          <svg viewBox="0 0 96 96" fill="currentColor">
+            <ellipse cx="48" cy="88" rx="22" ry="4" opacity=".12"/>
+            <path d="M36 78 Q48 58 60 78 Q48 70 36 78 Z"/>
+            <circle cx="48" cy="36" r="11"/>
+            <path class="hair" d="M30 40 Q22 22 38 18 Q48 12 58 18 Q74 22 66 40" opacity=".85"/>
+            <g class="notes" opacity=".7">
+              <path d="M64 28 L64 18 M64 18 Q70 16 70 22" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M74 34 L74 24 M74 24 Q80 22 80 28" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </g>
+          </svg>
+        </div>
+        <!-- Circe — shady link / enchantment -->
+        <div class="char char-circe" data-scene="circe">
+          <svg viewBox="0 0 96 96" fill="currentColor">
+            <ellipse cx="48" cy="88" rx="22" ry="4" opacity=".12"/>
+            <path d="M36 78 L40 50 L56 50 L60 78 Z"/>
+            <circle cx="48" cy="32" r="11"/>
+            <path d="M32 28 Q48 14 64 28" opacity=".7"/>
+            <circle class="swirl" cx="46" cy="58" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"/>
+            <path d="M46 52 L46 64 M40 58 L52 58" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </div>
+        <!-- Cyclops — impersonation -->
+        <div class="char char-cyclops" data-scene="cyclops">
+          <svg viewBox="0 0 96 96" fill="currentColor">
+            <ellipse cx="48" cy="88" rx="24" ry="4" opacity=".12"/>
+            <path d="M28 78 L34 48 L62 48 L68 78 Z"/>
+            <circle cx="48" cy="30" r="16"/>
+            <circle class="eye" cx="48" cy="30" r="7" fill="var(--parchment)" stroke="currentColor" stroke-width="3"/>
+            <circle cx="48" cy="30" r="3"/>
+          </svg>
+        </div>
+        <!-- Poseidon — payment storm -->
+        <div class="char char-poseidon" data-scene="storm">
+          <svg viewBox="0 0 96 96" fill="currentColor">
+            <ellipse cx="48" cy="88" rx="22" ry="4" opacity=".12"/>
+            <path d="M36 78 L40 50 L56 50 L60 78 Z"/>
+            <circle cx="48" cy="32" r="11"/>
+            <path d="M58 48 L72 22 L66 48 L78 70 L58 54 Z" class="bolt" opacity=".85"/>
+            <path d="M34 58 L22 70" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <!-- Owl of Athena — careful watch -->
+        <div class="char char-owl" data-scene="watch">
+          <svg viewBox="0 0 96 96" fill="currentColor">
+            <ellipse cx="48" cy="88" rx="18" ry="4" opacity=".12"/>
+            <ellipse cx="48" cy="52" rx="20" ry="24"/>
+            <circle cx="40" cy="46" r="7" fill="var(--parchment)"/>
+            <circle cx="56" cy="46" r="7" fill="var(--parchment)"/>
+            <circle cx="40" cy="46" r="3"/><circle cx="56" cy="46" r="3"/>
+            <path d="M48 52 L44 58 L52 58 Z"/>
+            <path class="wing" d="M28 52 Q18 48 26 66 Z" opacity=".85"/>
+            <path d="M68 52 Q78 48 70 66 Z" opacity=".85"/>
+          </svg>
+        </div>
+      </div>
+      <canvas class="motion-canvas" id="motion" width="600" height="200"></canvas>
     </div>
     <div class="copy" id="words" role="status" aria-live="polite">
       <p class="eyebrow" id="eyebrow"></p>
@@ -376,24 +653,132 @@
         <img src="/static/icons/icon-180.png" alt="" width="56" height="56" draggable="false">
       </div>
     </div>
-    <p class="hint">Or say “Hey {{NAME}}” — we've set sail</p>
+    <p class="hint">Always on watch. You can close this window.</p>
   </footer>
 </div>
 
+
+
+<div class="auth" id="auth" aria-live="polite">
+  <div class="auth-card">
+    <img class="auth-mark" src="/static/icons/icon-180.png" alt="">
+
+    <form data-v="signin" hidden>
+      <h2>Welcome aboard</h2>
+      <p class="sub">Sign in and {{NAME}} keeps watch over your messages.</p>
+      <label for="siPhone">Phone number</label>
+      <input id="siPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(214) 555-0123" required>
+      <label for="siPass">Password</label>
+      <input id="siPass" type="password" autocomplete="current-password" required>
+      <button class="btn" type="submit">Sign in</button>
+      <div class="links">
+        <button class="link" type="button" data-go="forgot">Forgot password?</button>
+        <button class="link" type="button" data-go="signup">Create an account</button>
+      </div>
+    </form>
+
+    <form data-v="signup" hidden>
+      <h2>Begin the voyage</h2>
+      <p class="sub">Three details, then a code to your phone.</p>
+      <label for="suName">First name</label>
+      <input id="suName" type="text" autocomplete="given-name" maxlength="40" required>
+      <label for="suPhone">Phone number</label>
+      <input id="suPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(214) 555-0123" required>
+      <label for="suDob">Date of birth</label>
+      <input id="suDob" type="date" required>
+      <button class="btn" type="submit">Send my code</button>
+      <div class="links center">
+        <button class="link" type="button" data-go="signin">I already have an account</button>
+      </div>
+    </form>
+
+    <form data-v="forgot" hidden>
+      <h2>Forgot password</h2>
+      <p class="sub">Enter your phone number. A code will prove it is you.</p>
+      <label for="fgPhone">Phone number</label>
+      <input id="fgPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(214) 555-0123" required>
+      <button class="btn" type="submit">Send my code</button>
+      <div class="links center">
+        <button class="link" type="button" data-go="signin">Back to sign in</button>
+      </div>
+    </form>
+
+    <form data-v="code" hidden>
+      <h2>Check your phone</h2>
+      <p class="sub">Enter the 6-digit code sent to <span id="codeTo"></span>.</p>
+      <input id="codeIn" class="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+             maxlength="6" pattern="[0-9]{6}" aria-label="6-digit code" required>
+      <button class="btn" type="submit">Verify</button>
+      <div class="links">
+        <button class="link" type="button" id="resendBtn" disabled>Send a new code</button>
+        <button class="link" type="button" id="codeBack">Different number</button>
+      </div>
+    </form>
+
+    <form data-v="password" hidden>
+      <h2 id="pwTitle">Create a password</h2>
+      <p class="sub">At least 8 characters, with letters and numbers.</p>
+      <label for="pw1">Password</label>
+      <input id="pw1" type="password" autocomplete="new-password" minlength="8" required>
+      <label for="pw2">Type it again</label>
+      <input id="pw2" type="password" autocomplete="new-password" minlength="8" required>
+      <button class="btn" type="submit" id="pwBtn">Continue</button>
+    </form>
+
+    <form data-v="contact" hidden>
+      <h2>Emergency contact</h2>
+      <p class="sub" id="ctSub"></p>
+      <label for="ctName">Their first name</label>
+      <input id="ctName" type="text" maxlength="40">
+      <label for="ctPhone">Their phone number</label>
+      <input id="ctPhone" type="tel" inputmode="tel" placeholder="(214) 555-0199">
+      <button class="btn" type="submit">Finish</button>
+      <div class="links center">
+        <button class="link" type="button" id="ctSkip">Skip for now</button>
+      </div>
+    </form>
+
+    <form data-v="account" hidden>
+      <h2>Your account</h2>
+      <p class="who" id="acWho"></p>
+      <p class="sub" id="acSub"></p>
+      <label for="acName">Emergency contact name</label>
+      <input id="acName" type="text" maxlength="40">
+      <label for="acPhone">Emergency contact phone</label>
+      <input id="acPhone" type="tel" inputmode="tel" placeholder="(214) 555-0199">
+      <p class="note" id="acNote"></p>
+      <button class="btn" type="submit">Save</button>
+      <div class="links">
+        <button class="link" type="button" id="acClose">Close</button>
+        <button class="link" type="button" id="acOut">Sign out</button>
+      </div>
+    </form>
+
+    <p class="err" id="authErr" role="alert"></p>
+  </div>
+</div>
+
+<div class="oc-ship" id="ocShip" aria-hidden="true">
+  <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path class="sail" d="M13 11 Q24 15 35 11 L33 26 Q24 29 15 26 Z"/>
+    <path d="M24 7 V31"/>
+    <path d="M6 31 Q24 41 42 31 L38 37 Q24 43 10 37 Z" fill="currentColor"/>
+    <path d="M6 31 Q2 25 7 21"/>
+    <path d="M42 31 Q47 25 43 19"/>
+    <path class="wake" d="M2 45 H46"/>
+  </svg>
+</div>
+<div class="oc-dot" id="ocDot" aria-hidden="true"></div>
 <script>
   const NAME = "{{NAME}}";
   const $ = id => document.getElementById(id);
 
-  (function waves() {
-    const canvas = $("waves");
+  /* Odyssey center motion — rowing, thunder, song, swirl, watch */
+  (function odysseyMotion() {
+    const canvas = $("motion");
     const ctx = canvas.getContext("2d");
-    const LAYERS = 3, POINTS = 50;
-    const phases = Array.from({ length: LAYERS }, () => Math.random() * Math.PI * 2);
-    const speeds = [1.1, 0.8, 1.35];
-    const amps = [0.38, 0.25, 0.16];
-    const seeds = Array.from({ length: LAYERS }, () =>
-      Array.from({ length: POINTS }, () => 0.5 + Math.random()));
-    let energy = 0.26, target = 0.26, t = 0;
+    let energy = 0.26, target = 0.26, t = 0, bolts = [];
+    let scene = "harbor";
 
     function readEnergy() {
       const n = parseFloat(getComputedStyle(document.body).getPropertyValue("--energy"));
@@ -402,10 +787,161 @@
     function color() {
       return getComputedStyle(document.body).getPropertyValue("--tone").trim() || "#1a2c44";
     }
+    function readScene() {
+      return document.body.dataset.scene || (
+        document.body.dataset.state === "scam" ? "storm" :
+        document.body.dataset.state === "suspicious" ? "watch" :
+        document.body.dataset.state === "safe" ? "harbor" : "harbor"
+      );
+    }
+
+    function drawSea(w, h, c, amp, sharp) {
+      const mid = h * 0.42;
+      for (let L = 2; L >= 0; L--) {
+        ctx.beginPath();
+        for (let i = 0; i <= 48; i++) {
+          const x = (i / 48) * w;
+          const y = mid + Math.sin(t * (1.1 + L * 0.35) + i * 0.28 + L) * amp * (0.55 + L * 0.2)
+            + Math.sin(t * 2.2 + i * 0.5) * amp * 0.25 * sharp;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = c;
+        ctx.globalAlpha = 0.2 + energy * 0.35 - L * 0.04;
+        ctx.lineWidth = L === 0 ? 2.4 : 1.5;
+        ctx.lineCap = "round"; ctx.lineJoin = "round";
+        ctx.stroke();
+      }
+    }
+
+    function drawOars(w, h, c) {
+      const midY = h * 0.38;
+      const n = 5;
+      for (let i = 0; i < n; i++) {
+        const x = w * (0.22 + i * 0.14);
+        const swing = Math.sin(t * 2.4 + i * 0.55) * (10 + energy * 14);
+        ctx.save();
+        ctx.translate(x, midY);
+        ctx.rotate((-28 + swing) * Math.PI / 180);
+        ctx.strokeStyle = c;
+        ctx.globalAlpha = 0.45 + energy * 0.35;
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, h * 0.42);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(0, h * 0.42, 5, 2.5, 0, 0, Math.PI * 2);
+        ctx.globalAlpha = 0.25 + energy * 0.2;
+        ctx.fillStyle = c;
+        ctx.fill();
+        ctx.restore();
+      }
+      // hull silhouette
+      ctx.beginPath();
+      ctx.moveTo(w * 0.16, midY + 4);
+      ctx.quadraticCurveTo(w * 0.5, midY - 6, w * 0.84, midY + 4);
+      ctx.quadraticCurveTo(w * 0.5, midY + 18, w * 0.16, midY + 4);
+      ctx.globalAlpha = 0.18 + energy * 0.15;
+      ctx.fillStyle = c;
+      ctx.fill();
+    }
+
+    function drawThunder(w, h, c) {
+      drawSea(w, h, c, h * (0.12 + energy * 0.22), 1.6);
+      if (Math.random() < 0.035 + energy * 0.05) {
+        bolts.push({
+          x: w * (0.2 + Math.random() * 0.6),
+          life: 1,
+          zig: 3 + (Math.random() * 3 | 0),
+        });
+      }
+      bolts = bolts.filter(b => b.life > 0);
+      for (const b of bolts) {
+        ctx.beginPath();
+        let x = b.x, y = 0;
+        ctx.moveTo(x, y);
+        for (let i = 0; i < b.zig; i++) {
+          x += (Math.random() - 0.5) * 28;
+          y += h * 0.22;
+          ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = c;
+        ctx.globalAlpha = 0.55 * b.life;
+        ctx.lineWidth = 2.4;
+        ctx.stroke();
+        b.life -= 0.08;
+      }
+    }
+
+    function drawSong(w, h, c) {
+      const mid = h * 0.5;
+      for (let ring = 0; ring < 4; ring++) {
+        const r = 12 + ring * 16 + Math.sin(t * 2 + ring) * 4 * energy;
+        ctx.beginPath();
+        ctx.arc(w * 0.5, mid * 0.7, r + (t * 18 + ring * 20) % 40, 0, Math.PI * 2);
+        ctx.strokeStyle = c;
+        ctx.globalAlpha = 0.12 + energy * 0.18 - ring * 0.02;
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+      }
+      drawSea(w, h, c, h * (0.06 + energy * 0.1), 0.6);
+    }
+
+    function drawSwirl(w, h, c) {
+      const cx = w * 0.5, cy = h * 0.42;
+      for (let arm = 0; arm < 3; arm++) {
+        ctx.beginPath();
+        for (let i = 0; i <= 40; i++) {
+          const a = t * 1.4 + arm * 2.1 + i * 0.22;
+          const r = 6 + i * 1.6;
+          const x = cx + Math.cos(a) * r;
+          const y = cy + Math.sin(a) * r * 0.72;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = c;
+        ctx.globalAlpha = 0.22 + energy * 0.28;
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+      }
+      drawSea(w, h, c, h * (0.05 + energy * 0.08), 0.8);
+    }
+
+    function drawWatch(w, h, c) {
+      const cx = w * 0.5, cy = h * 0.36;
+      const blink = Math.sin(t * 1.2) > 0.92 ? 0.15 : 1;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 28 + energy * 6, 14 * blink + 2, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = c;
+      ctx.globalAlpha = 0.35 + energy * 0.3;
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5 + energy * 2, 0, Math.PI * 2);
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = c;
+      ctx.fill();
+      drawSea(w, h, c, h * (0.05 + energy * 0.09), 0.5);
+    }
+
+    function drawApproach(w, h, c) {
+      // gentle footprints / path toward shore
+      for (let i = 0; i < 5; i++) {
+        const x = w * (0.25 + i * 0.12) + Math.sin(t + i) * 2;
+        const y = h * (0.55 - i * 0.06);
+        ctx.beginPath();
+        ctx.ellipse(x, y, 4, 2.2, -0.4, 0, Math.PI * 2);
+        ctx.globalAlpha = 0.12 + i * 0.06 + energy * 0.1;
+        ctx.fillStyle = c;
+        ctx.fill();
+      }
+      drawSea(w, h, c, h * (0.05 + energy * 0.08), 0.4);
+    }
 
     function frame(now) {
+      scene = readScene();
       target = readEnergy();
-      energy += (target - energy) * 0.08;
+      energy += (target - energy) * 0.07;
       t = now * 0.001;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -414,37 +950,19 @@
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      const mid = h * 0.52, c = color();
+      const c = color();
+      const amp = h * (0.07 + energy * 0.14);
 
-      for (let L = LAYERS - 1; L >= 0; L--) {
-        const amp = amps[L] * h * (0.16 + energy * 0.95);
-        ctx.beginPath();
-        for (let i = 0; i < POINTS; i++) {
-          const x = (i / (POINTS - 1)) * w;
-          const n = seeds[L][i];
-          const wobble = Math.sin(t * speeds[L] * 2.1 + phases[L] + i * 0.36 * n)
-            + 0.55 * Math.sin(t * speeds[L] * 3.3 - i * 0.2 + n * 4)
-            + 0.28 * Math.sin(t * 5.1 + i * n);
-          const jitter = energy > 0.5
-            ? Math.sin(t * 11 + i * 1.7 + phases[L]) * Math.sin(t * 3.2 + n) * 0.28 : 0;
-          const y = mid + (wobble + jitter) * amp * (0.55 + 0.45 * Math.sin((i / POINTS) * Math.PI));
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.strokeStyle = c;
-        ctx.globalAlpha = 0.22 + energy * 0.4 - L * 0.04;
-        ctx.lineWidth = L === 0 ? 2.5 : 1.6;
-        ctx.lineCap = "round"; ctx.lineJoin = "round";
-        ctx.stroke();
-        if (L === 0) {
-          ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
-          ctx.globalAlpha = 0.04 + energy * 0.07;
-          ctx.fillStyle = c; ctx.fill();
-        }
+      if (scene === "storm") drawThunder(w, h, c);
+      else if (scene === "siren") drawSong(w, h, c);
+      else if (scene === "circe") drawSwirl(w, h, c);
+      else if (scene === "cyclops" || scene === "watch") drawWatch(w, h, c);
+      else if (scene === "stranger") drawApproach(w, h, c);
+      else {
+        drawSea(w, h, c, amp, 0.7);
+        drawOars(w, h, c);
       }
       ctx.globalAlpha = 1;
-      if (Math.random() < 0.04 + energy * 0.08) {
-        seeds[(Math.random() * LAYERS) | 0][(Math.random() * POINTS) | 0] = 0.45 + Math.random() * 1.1;
-      }
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -455,12 +973,36 @@
     return h < 5 ? "Good evening." : h < 12 ? "Good morning." : h < 18 ? "Good afternoon." : "Good evening.";
   }
   const COPY = {
-    idle:      () => ({ status: "Ready",     eyebrow: "", headline: greeting(),         advice: "I watch the messages so the trick cannot fool you." }),
+    idle:      () => ({ status: "Ready",     eyebrow: "", headline: greeting(),         advice: "I am watching your new messages. You do not need to call me." }),
     listening: () => ({ status: "Listening", eyebrow: "", headline: "I'm listening.",   advice: "Tell me what arrived." }),
-    thinking:  () => ({ status: "Looking",   eyebrow: "", headline: "Reading the signs.", advice: "One moment." }),
+    thinking:  () => ({ status: "Looking",   eyebrow: "", headline: "Looking at the message.", advice: "One moment." }),
+  };
+  const SCENE_META = {
+    harbor:   { eyebrow: "Safe harbor",     status: "Clear",   char: "harbor" },
+    stranger: { eyebrow: "New traveler",    status: "Clear",   char: "stranger" },
+    siren:    { eyebrow: "Siren's song",    status: "Warning", char: "siren" },
+    circe:    { eyebrow: "Circe's trick",   status: "Caution", char: "circe" },
+    cyclops:  { eyebrow: "False face",      status: "Warning", char: "cyclops" },
+    storm:    { eyebrow: "Poseidon's storm",status: "Warning", char: "storm" },
+    watch:    { eyebrow: "Athena watches",  status: "Caution", char: "watch" },
   };
   const EYEBROW = { safe: "Safe harbor", suspicious: "Take care", scam: "Circe's trick" };
   const STATUS  = { safe: "Clear", suspicious: "Caution", scam: "Warning" };
+
+  function setScene(scene) {
+    const s = scene || "";
+    if (s) document.body.dataset.scene = s;
+    else delete document.body.dataset.scene;
+    document.querySelectorAll(".char").forEach(el => {
+      el.classList.toggle("on", !!s && el.dataset.scene === s);
+    });
+    // Idle / listen / think: show Hermes gently without locking a scene tone
+    if (!s) {
+      document.querySelectorAll(".char").forEach(el => {
+        el.classList.toggle("on", el.dataset.scene === "harbor");
+      });
+    }
+  }
 
   function setWords(el, text, startDelay) {
     el.textContent = "";
@@ -478,15 +1020,34 @@
   function setSwipeEnabled(on) { $("swipe").setAttribute("aria-disabled", on ? "false" : "true"); }
 
   function show(e) {
-    const base = COPY[e.state] ? COPY[e.state]() : {
-      status: STATUS[e.state] || "", eyebrow: EYEBROW[e.state] || "",
-      headline: e.headline || "", advice: e.action || e.reason || "" };
-    const from = !COPY[e.state] && e.sender && e.sender.toLowerCase() !== "unknown" ? "From " + e.sender : "";
+    const isBase = !!COPY[e.state];
+    let scene = e.scene || "";
+    if (!isBase && !scene) {
+      scene = e.state === "scam" ? "storm" : e.state === "suspicious" ? "watch" : "harbor";
+    }
+    if (isBase) scene = "";
+
+    const meta = SCENE_META[scene] || {};
+    const base = isBase ? COPY[e.state]() : {
+      status: meta.status || STATUS[e.state] || "",
+      eyebrow: meta.eyebrow || EYEBROW[e.state] || "",
+      headline: e.headline || "",
+      advice: e.action || e.reason || ""
+    };
+
+    let from = "";
+    if (!isBase) {
+      const sender = (e.sender || "").trim();
+      if (scene === "stranger") from = "From an unknown number";
+      else if (sender && sender.toLowerCase() !== "unknown") from = "From " + sender;
+    }
+
     document.body.dataset.state = e.state;
+    setScene(scene);
     busy = e.state === "listening" || e.state === "thinking";
     setSwipeEnabled(!busy);
     $("status").textContent = base.status;
-    const key = base.headline + "|" + base.advice + "|" + from;
+    const key = base.headline + "|" + base.advice + "|" + from + "|" + scene;
     if (key === current) return;
     current = key;
     $("words").classList.add("leaving");
@@ -501,7 +1062,7 @@
       setWords($("advice"), base.advice, 140);
       $("fromText").textContent = from;
       if (from) $("from").classList.add("on");
-    }, 200);
+    }, 220);
   }
 
   const swipe = $("swipe"), thumb = $("thumb"), fill = $("swipeFill");
@@ -509,9 +1070,11 @@
   let dragging = false, startX = 0, x = 0, maxX = 0;
   function measure() { maxX = Math.max(0, swipe.clientWidth - THUMB - PAD * 2); }
   measure(); window.addEventListener("resize", measure);
+  swipe.classList.add("rest");
   function setX(nx, animate) {
     x = Math.max(0, Math.min(maxX, nx));
-    const t = animate ? "transform 420ms cubic-bezier(.32,.72,0,1)" : "none";
+    // glide back with a soft overshoot, like a boat settling
+    const t = animate ? "transform 560ms cubic-bezier(.3,1.35,.5,1)" : "none";
     thumb.style.transition = t;
     fill.style.transition = animate ? "width 420ms cubic-bezier(.32,.72,0,1), background .5s" : "none";
     thumb.style.transform = "translate3d(" + x + "px,0,0)";
@@ -519,6 +1082,8 @@
     const pct = maxX ? Math.round((x / maxX) * 100) : 0;
     swipe.setAttribute("aria-valuenow", String(pct));
     swipe.classList.toggle("armed", pct > 72);
+    swipe.classList.toggle("rest", x === 0 && !dragging);
+    swipe.style.setProperty("--p", (pct / 100).toFixed(3));
   }
   function resetThumb() { swipe.classList.remove("dragging", "armed", "success"); setX(0, true); }
   function triggerCheck() {
@@ -554,16 +1119,180 @@
 
   const demo = new URLSearchParams(location.search).get("demo");
   const DEMO = {
-    safe:       { headline: "This looks safe.",     action: "A warm note from someone you know.", sender: "Maya" },
-    suspicious: { headline: "Something seems off.", action: "Wait for family before you act.",     sender: "+1 (555) 010-0142" },
-    scam:       { headline: "This text is a scam.", action: "Do not tap anything in it.",          sender: "+1 (555) 010-0199" },
+    safe:       { state: "safe",       scene: "harbor",   headline: "This looks safe.",              action: "No need to worry.",              sender: "Maya" },
+    stranger:   { state: "safe",       scene: "stranger", headline: "It looks friendly.",           action: "Do you know this person?",       sender: "unknown" },
+    suspicious: { state: "suspicious", scene: "watch",    headline: "Something seems off.",          action: "Wait for family before you act.", sender: "+1 (555) 010-0142" },
+    scam:       { state: "scam",       scene: "storm",    headline: "This text is a scam.",          action: "Do not tap anything in it.",     sender: "+1 (555) 010-0199" },
+    siren:      { state: "scam",       scene: "siren",    headline: "This prize is a trick.",        action: "Do not pay any fee.",            sender: "unknown" },
+    circe:      { state: "suspicious", scene: "circe",    headline: "That link looks shady.",        action: "Please don't tap it.",           sender: "refunds@secure-pay.top" },
+    cyclops:    { state: "scam",       scene: "cyclops",  headline: "This is not your grandson.",    action: "Do not send gift cards.",        sender: "+1 (555) 010-0199" },
   };
-  if (demo) show(Object.assign({ state: demo }, DEMO[demo] || {}));
+  if (demo) show(Object.assign({}, DEMO[demo] || { state: demo }));
   else {
     show({ state: "idle" });
     const es = new EventSource("/events");
     es.onmessage = m => show(JSON.parse(m.data));
   }
+
+
+  // ===== Accounts: sign in, create account, one-time code, password, emergency contact =====
+  (function () {
+    const A = $("auth"), errEl = $("authErr");
+    const flow = { phone: "", ticket: "", purpose: "", needs: false, password: "" };
+    let tick = null, me = null;
+    const post = (step, body) => fetch("/api/auth/" + step, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {})
+    }).then(r => r.json()).catch(() => ({ ok: false, error: "I could not reach {{NAME}}. Please try again." }));
+    const err = t => { errEl.textContent = t || ""; };
+
+    function view(name) {
+      A.querySelectorAll("form").forEach(f => { f.hidden = f.dataset.v !== name; });
+      err(""); A.classList.add("on");
+      const first = A.querySelector('form[data-v="' + name + '"] input');
+      if (first) setTimeout(() => first.focus(), 60);
+    }
+    function signedIn(user) {
+      me = user; document.body.classList.add("signed");
+      $("acctBtn").textContent = (user.name || "?").slice(0, 1).toUpperCase();
+      A.classList.remove("on");
+      A.querySelectorAll("input").forEach(i => { i.value = ""; });
+      flow.password = flow.ticket = "";
+    }
+    function signedOut(hasAccounts) {
+      me = null; document.body.classList.remove("signed");
+      view(hasAccounts ? "signin" : "signup");
+    }
+    async function run(form, step, body) {
+      const btn = form.querySelector(".btn"); btn.disabled = true; err("");
+      const r = await post(step, body); btn.disabled = false;
+      if (!r.ok) err(r.error || "Something went wrong. Please try again.");
+      return r.ok ? r : null;
+    }
+    function countdown(seconds) {
+      const b = $("resendBtn"); let left = seconds; clearInterval(tick);
+      const paint = () => { b.disabled = left > 0; b.textContent = left > 0 ? "New code in " + left + "s" : "Send a new code"; };
+      paint(); tick = setInterval(() => { left -= 1; paint(); if (left <= 0) clearInterval(tick); }, 1000);
+    }
+    function toCode(r) {
+      flow.phone = r.phone; flow.purpose = r.purpose; flow.needs = !!r.needs_contact;
+      $("codeTo").textContent = r.phone_masked; $("codeIn").value = "";
+      view("code"); countdown(r.resend_in || 30);
+    }
+    const form = name => A.querySelector('form[data-v="' + name + '"]');
+    const on = (name, fn) => form(name).addEventListener("submit", e => { e.preventDefault(); fn(form(name)); });
+
+    A.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => view(b.dataset.go)));
+    $("suDob").max = new Date().toISOString().slice(0, 10);
+
+    on("signin", async f => {
+      const r = await run(f, "login", { phone: $("siPhone").value, password: $("siPass").value });
+      if (r) signedIn(r.state.user);
+    });
+    on("signup", async f => {
+      const r = await run(f, "signup", { name: $("suName").value, phone: $("suPhone").value, dob: $("suDob").value });
+      if (r) toCode(r);
+    });
+    on("forgot", async f => {
+      const r = await run(f, "forgot", { phone: $("fgPhone").value });
+      if (r) toCode(r);
+    });
+    on("code", async f => {
+      const r = await run(f, "verify", { phone: flow.phone, code: $("codeIn").value });
+      if (!r) return;
+      flow.ticket = r.ticket; clearInterval(tick);
+      const reset = flow.purpose === "reset";
+      $("pwTitle").textContent = reset ? "Choose a new password" : "Create a password";
+      $("pwBtn").textContent = reset ? "Save and sign in" : "Continue";
+      $("pw1").value = $("pw2").value = ""; view("password");
+    });
+    $("codeIn").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); });
+    $("resendBtn").addEventListener("click", async () => {
+      $("resendBtn").disabled = true;
+      const r = await post("resend", { phone: flow.phone });
+      if (r.ok) { err(""); countdown(r.resend_in || 30); } else { err(r.error); $("resendBtn").disabled = false; }
+    });
+    $("codeBack").addEventListener("click", () => view(flow.purpose === "reset" ? "forgot" : "signup"));
+    on("password", async f => {
+      const a = $("pw1").value, b = $("pw2").value;
+      if (a !== b) return err("The two passwords do not match.");
+      if (a.length < 8 || !/[A-Za-z]/.test(a) || !/\d/.test(a)) return err("Use at least 8 characters, with letters and numbers.");
+      if (flow.purpose === "reset") {
+        const r = await run(f, "reset", { phone: flow.phone, ticket: flow.ticket, password: a });
+        if (r) signedIn(r.state.user);
+        return;
+      }
+      flow.password = a;
+      $("ctSub").textContent = flow.needs
+        ? "Required for your age. If {{NAME}} finds a scam, this person is told."
+        : "Optional. If {{NAME}} finds a scam, this person is told.";
+      $("ctSkip").hidden = flow.needs;
+      view("contact");
+    });
+    async function finish(name, phone) {
+      const r = await run(form("contact"), "finish", {
+        phone: flow.phone, ticket: flow.ticket, password: flow.password, contact_name: name, contact_phone: phone });
+      if (r) signedIn(r.state.user);
+    }
+    on("contact", () => finish($("ctName").value, $("ctPhone").value));
+    $("ctSkip").addEventListener("click", () => finish("", ""));
+
+    $("acctBtn").addEventListener("click", () => {
+      if (!me) return;
+      $("acWho").textContent = me.name + " · " + me.phone_masked;
+      $("acSub").textContent = "{{NAME}} watches new messages from numbers not saved in your Contacts.";
+      $("acName").value = me.contact_name || ""; $("acPhone").value = "";
+      $("acPhone").placeholder = me.contact_masked || "(214) 555-0199";
+      $("acNote").textContent = me.contact_masked
+        ? "Alerts go to " + me.contact_name + " at " + me.contact_masked + ". Enter a number only to change it."
+        : (me.needs_contact ? "An emergency contact is required for your age." : "No emergency contact yet. Alerts stay on this Mac.");
+      view("account");
+    });
+    on("account", async f => {
+      if (!$("acPhone").value.trim() && me.contact_masked) { A.classList.remove("on"); return; }
+      const r = await run(f, "contact", { contact_name: $("acName").value, contact_phone: $("acPhone").value });
+      if (r) signedIn(r.state.user);
+    });
+    $("acClose").addEventListener("click", () => A.classList.remove("on"));
+    $("acOut").addEventListener("click", async () => { const r = await post("logout"); signedOut(r.state ? r.state.has_accounts : true); });
+
+    if (demo && demo !== "signin" && demo !== "signup") return;
+    if (demo) return view(demo);
+    fetch("/api/auth/state").then(r => r.json())
+      .then(s => s.signed_in ? signedIn(s.user) : signedOut(s.has_accounts))
+      .catch(() => {});
+  })();
+
+  // ===== Odyssey cursor: a precise dot, with a small ship sailing after it =====
+  (function () {
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    const root = document.documentElement, dot = $("ocDot"), ship = $("ocShip");
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let mx = -100, my = -100, sx = -100, sy = -100, tilt = 0, raf = 0;
+    root.classList.add("oc-on");
+    function frame() {
+      const k = calm ? 1 : 0.16;
+      const dx = mx - sx, dy = my - sy;
+      sx += dx * k; sy += dy * k;
+      tilt += ((Math.max(-14, Math.min(14, dx * 0.5))) - tilt) * 0.12;      // lean into the turn
+      const bob = calm ? 0 : Math.sin(performance.now() / 520) * 1.500;       // gentle swell
+      ship.style.transform = "translate3d(" + sx + "px," + (sy + bob) + "px,0) rotate(" + tilt.toFixed(2) + "deg)";
+      raf = requestAnimationFrame(frame);
+    }
+    window.addEventListener("pointermove", e => {
+      mx = e.clientX; my = e.clientY;
+      dot.style.transform = "translate3d(" + mx + "px," + my + "px,0)";
+      if (!root.classList.contains("oc-live")) { sx = mx; sy = my; root.classList.add("oc-live"); }
+      const hot = e.target.closest && e.target.closest(".swipe, .thumb, a, button, input, [role=button], [tabindex]");
+      root.classList.toggle("oc-hover", !!hot);
+    }, { passive: true });
+    window.addEventListener("pointerdown", () => root.classList.add("oc-down"));
+    window.addEventListener("pointerup", () => root.classList.remove("oc-down"));
+    document.addEventListener("mouseleave", () => root.classList.remove("oc-live", "oc-hover"));
+    document.addEventListener("visibilitychange", () => {
+      cancelAnimationFrame(raf); if (!document.hidden) raf = requestAnimationFrame(frame);
+    });
+    raf = requestAnimationFrame(frame);
+  })();
 </script>
 </body>
 </html>

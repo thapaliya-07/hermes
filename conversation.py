@@ -99,25 +99,39 @@ _YES = re.compile(r"^\s*(?:yes|yeah|yep|sure|please|ok|okay|do it)\b", re.I)
 _NO = re.compile(r"^\s*(?:no|nope|nah|don'?t|do not|cancel|stop)\b", re.I)
 
 
+def _strip_wake(utterance: str) -> str:
+    """Remove 'Hey Hermes' / wake words so bare wake-ups don't force a check."""
+    u = (utterance or "").strip()
+    for w in config.WAKE_WORDS:
+        u = re.sub(r"\bhey\s+" + re.escape(w) + r"\b", " ", u, flags=re.I)
+        u = re.sub(r"\b" + re.escape(w) + r"\b", " ", u, flags=re.I)
+    for p in config.WAKE_PHRASES:
+        u = re.sub(re.escape(p), " ", u, flags=re.I)
+    return re.sub(r"\s+", " ", u).strip(" .,!?:;")
+
+
 def detect_intent(utterance: str, session: dict) -> str:
     u = (utterance or "").strip()
-    if not u:
-        return "clarify"
+    core = _strip_wake(u)
+    if not u or not core or core.lower() in ("hey", "hi", "hello", "there"):
+        # Wake alone — greet and wait. Do NOT jump to a risk verdict.
+        return "listen"
     awaiting = session.get("awaiting")
     if awaiting == "verify_confirm":
-        if _YES.search(u):
+        if _YES.search(core) or _YES.search(u):
             return "verify_yes"
-        if _NO.search(u):
+        if _NO.search(core) or _NO.search(u):
             return "verify_no"
-    if _CALL.search(u):
+    if _CALL.search(u) or _CALL.search(core):
         return "call_family"
-    if _VERIFY.search(u):
+    if _VERIFY.search(u) or _VERIFY.search(core):
         return "verify"
-    if _WHY.search(u) and session.get("last_check"):
+    if (_WHY.search(u) or _WHY.search(core)) and session.get("last_check"):
         return "why"
-    if _CHECK.search(u) or not session.get("last_check"):
+    # Only check when she asked to look / mentioned a message — never by default.
+    if _CHECK.search(u) or _CHECK.search(core):
         return "check"
-    if _WHY.search(u):
+    if _WHY.search(u) or _WHY.search(core):
         return "why"
     return "chat"
 
@@ -171,7 +185,7 @@ def _ask_gemini_chat(session: dict, user_text: str) -> str:
         return text or "I'm listening. Tell me a little more."
     except Exception as e:
         log("conversation chat failed:", e)
-        return ("I'm listening. Did they ask you to send money or gift cards?")
+        return ("I'm listening. Tell me what the message says.")
 
 
 def _update_summary(session: dict, user_text: str, reply: str):
@@ -182,6 +196,9 @@ def _update_summary(session: dict, user_text: str, reply: str):
 
 
 def _enrich_with_pattern(result: dict, body: str = "") -> dict:
+    # A safe message never gets a "connected to an earlier suspicious message" warning.
+    if result.get("verdict") == "SAFE" or result.get("error"):
+        return result
     pattern = memory.remember_and_match(result, body=body)
     if not pattern:
         return result
@@ -203,7 +220,7 @@ def _enrich_with_pattern(result: dict, body: str = "") -> dict:
             speech += "."
         # Keep total length reasonable for TTS
         combined = (speech + " " + extra).strip()
-        if len(combined.split()) <= 55:
+        if len(combined.split()) <= 22:
             result["speech"] = combined
         result["reason"] = (result.get("reason") or "") + " " + pattern["summary"]
         result["reason"] = result["reason"].strip()
@@ -237,39 +254,72 @@ def _maybe_offer_verify(session: dict, result: dict, body: str = "") -> dict:
 
 def run_message_check(session: dict, question: str, speak: bool = True,
                       before_speaking=None) -> dict:
-    """Full Mac check, then scam-memory + optional verify offer."""
-    if checker.ui_hide:
-        checker.ui_hide()
-    shot = mac.screenshot()
+    """Look at the message first, then judge — never assume suspicious up front."""
+    # Step 1: show/speak that we are looking (not judging yet).
+    checker.publish("thinking", device="mac", headline="Looking at the message.",
+                    reason="", action="", scene="harbor", session_id=session.get("id"))
+
+    # Use the screenshot taken at the moment of waking (our window was not on screen yet).
+    taken, shot = checker.wake_shot
+    checker.wake_shot = (0, None)
+    if not shot or time.time() - taken > 20:
+        if checker.ui_hide:
+            checker.ui_hide()
+        shot = mac.screenshot()
     if checker.ui_pop:
         checker.ui_pop()
     t, e = mac.latest_text(), mac.latest_email()
     text = email = None
     body_for_memory = ""
     if t:
-        text = "From: %s\nReceived: %d minutes ago\n\n%s" % (t["sender"], t["minutes_ago"], t["body"])
+        text = "From: %s\nSender status: %s\nReceived: %d minutes ago\n\n%s" % (
+            t["sender"], mac.sender_status(t), t["minutes_ago"], t["body"])
         body_for_memory = t["body"]
     if e:
         email = "From: %s\nSubject: %s\n\n%s" % (e["sender"], e["subject"], e["body"])
         if not body_for_memory:
             body_for_memory = "%s\n%s" % (e["subject"], e["body"])
-    log("conversation check: text=%s email=%s shot=%s" % (bool(t), bool(e), bool(shot)))
+    # Judge what she asked about. "My screen / this / notification" means the screenshot,
+    # not whichever text happened to arrive last.
+    q = (question or "").lower()
+    names_text = bool(re.search(r"\b(text|texts|message|messages|messi|sms|imessage)\b", q))
+    names_email = bool(re.search(r"\b(e-?mail|emails|mail|inbox)\b", q))
+    names_screen = bool(re.search(r"\b(screen|display|notification|pop-?up|window|page|website|"
+                                  r"this|look at|looking at|read)\b", q))
+    if shot:
+        if names_screen and not names_text and not names_email:
+            text = email = None                      # screen only
+        else:
+            if names_text and not names_email:
+                email = None
+            if names_email and not names_text:
+                text = None
+            # an old text she did not mention is not what is in front of her
+            if text and not names_text and t and t["minutes_ago"] > 30:
+                text = None
+    log("conversation check: text=%s email=%s shot=%s" % (bool(text), bool(email), bool(shot)))
 
-    # Insufficient context → ask a follow-up instead of a weak verdict.
+    # Step 2: if nothing to read, ask calmly — do not talk about scams yet.
     if not (text or email or shot) and not _has_enough_story(question):
-        reply = ("I don't see a message yet. Did someone ask you to send money, "
-                 "gift cards, or a code?")
+        reply = ("I don't see a message yet. Open the text, then ask me to check it.")
         session["awaiting"] = "more_context"
-        # Not a real risk verdict — just asking for context (don't alert family).
-        return {"verdict": "SAFE", "speech": reply, "headline": "Need a little more.",
-                "reason": "I need a bit more detail.", "action": "Tell me what they asked for.",
-                "item": "screen", "sender": "unknown", "conversational": True}
+        return {"verdict": "SAFE", "speech": reply, "headline": "Looking for a message.",
+                "reason": "Nothing to read yet.", "action": "Open the text and ask again.",
+                "item": "screen", "sender": "unknown", "scene": "harbor",
+                "conversational": True}
 
-    r = checker.run_check("mac", question, text=text, email=email, image_bytes=shot,
+    # Step 3: only now filter safe / suspicious / scam from the content.
+    neutral_q = question or "Please look at this message and tell me what you find."
+    if re.search(r"\bis this safe\b", neutral_q, re.I):
+        neutral_q = ("Look at the latest text or email first. Judge only from its words. "
+                     "Do not assume it is suspicious.")
+    r = checker.run_check("mac", neutral_q, text=text, email=email, image_bytes=shot,
                           skip_memory=True)  # we handle memory here
     # Prefer the body of the item Gemini judged
     if r.get("item") == "email" and e:
         body_for_memory = "%s\n%s" % (e.get("subject", ""), e.get("body", ""))
+    elif r.get("item") == "screen" or not text:
+        body_for_memory = ""
     elif t:
         body_for_memory = t.get("body", body_for_memory)
 
@@ -406,6 +456,18 @@ def turn(utterance: str, session_id: Optional[str] = None, speak: bool = True,
         result = _do_call_family(utterance)
     elif intent == "why":
         result = _explain_why(session)
+    elif intent == "listen":
+        result = {
+            "speech": "I'm here. Show me the message, or say check this.",
+            "verdict": "SAFE",
+            "headline": "I'm here.",
+            "reason": "",
+            "action": "Ask me to check the message.",
+            "item": "screen",
+            "sender": "unknown",
+            "scene": "harbor",
+            "conversational": True,
+        }
     elif intent == "check" or force_check:
         result = run_message_check(session, utterance, speak=False,
                                    before_speaking=before_speaking)
@@ -424,6 +486,7 @@ def turn(utterance: str, session_id: Optional[str] = None, speak: bool = True,
                 "action": "",
                 "item": "screen",
                 "sender": "unknown",
+                "scene": "harbor",
                 "conversational": True,
             }
 
@@ -441,6 +504,7 @@ def turn(utterance: str, session_id: Optional[str] = None, speak: bool = True,
     checker.publish(state, device="mac", headline=result.get("headline"),
                     reason=result.get("reason"), action=result.get("action"),
                     sender=result.get("sender"), item=result.get("item"),
+                    scene=result.get("scene", "harbor"),
                     session_id=session["id"],
                     pattern=result.get("pattern"),
                     offer_verify=result.get("offer_verify"))

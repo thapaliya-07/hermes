@@ -1,6 +1,6 @@
 """Background wake-word listener. Records short phrases from the mic, sends them to
 Google's free speech recognizer (SpeechRecognition.recognize_google) and starts a
-conversational turn when it hears the app's name. After Moly answers, it briefly
+conversational turn when it hears the app's name. After it answers, it briefly
 keeps listening for a follow-up (yes/no verify, "why?", "call my daughter") without
 requiring the wake word again. Uses sounddevice so no Homebrew is needed."""
 import difflib
@@ -19,7 +19,8 @@ from mac import log
 
 RATE = 16000
 CHUNK = 1600            # 0.1 s
-FOLLOWUP_SECONDS = 18   # listen for a reply after Moly speaks (no wake word)
+QUESTION_SECONDS = 7    # like Siri: after "Mm-hmm?", wait this long for the question
+FOLLOWUP_SECONDS = 7    # after an answer, stay open this long for a follow-up (no wake word)
 
 _busy = threading.Lock()   # one check at a time (mic or button)
 _session_id = None         # sticky conversation session across follow-ups
@@ -46,16 +47,51 @@ def _transcripts(rec, audio):
     return [a.get("transcript", "") for a in res.get("alternative", []) if a.get("transcript")]
 
 
-def handle(question, session_id=None):
-    """Run one conversational turn. Shared by the wake word and the 'Is this safe?' button."""
+def spoken_request(phrase):
+    """What was said besides the wake word: "hello hermes is this safe" -> "is this safe"."""
+    p = phrase.lower()
+    for ch in ",.!?":
+        p = p.replace(ch, " ")
+    for x in config.WAKE_PHRASES:
+        p = p.replace(x, " ")
+    words = [w for w in p.split()
+             if w not in config.WAKE_WORDS and w not in ("hey", "hi", "hello", "ok", "okay", "play")
+             and difflib.SequenceMatcher(None, w, config.WAKE_WORDS[0]).ratio() < 0.8]
+    return " ".join(words)
+
+
+def appear():
+    """Like "Hey Siri": grab the screen first (so our own window is never in the
+    picture), then show the window in front of everything."""
+    try:
+        if checker.ui_hide:
+            checker.ui_hide()                  # no-op while waiting hidden
+        checker.wake_shot = (time.time(), mac.screenshot())
+    except Exception as e:
+        log("wake screenshot failed:", e)
+    if checker.ui_pop:
+        checker.ui_pop()
+    checker.publish("listening")
+
+
+def handle(question, session_id=None, woke=False, ack=True):
+    """Run one conversational turn. Shared by the wake word and the swipe button.
+    woke=True means appear() and the "Mm-hmm" already happened."""
     global _session_id
+    import auth
+    if not auth.current():               # signed out: show the sign-in screen, nothing else
+        if checker.ui_pop:
+            checker.ui_pop()
+        checker.publish("idle")
+        return None
     if not _busy.acquire(blocking=False):
         return None
     try:
-        checker.publish("listening")
-        # Say "I'm here" right away on a fresh wake; follow-ups stay quiet.
+        if not woke:
+            appear()
+        # A soft "Mm-hmm" on a fresh spoken wake; follow-ups and the swipe stay quiet.
         hello = None
-        if not session_id:
+        if not session_id and ack and not woke:
             hello = threading.Thread(target=voice.ack, daemon=True)
             hello.start()
         import conversation
@@ -74,11 +110,14 @@ def handle(question, session_id=None):
         _busy.release()
 
 
-def _record_phrase(stream, threshold, max_frames=100):
-    """Block until someone speaks, return the phrase as int16 bytes (or None)."""
+def _record_phrase(stream, threshold, max_frames=100, deadline=None):
+    """Block until someone speaks, return the phrase as int16 bytes (or None).
+    With a deadline, give up if nobody has started speaking by then."""
     frames, silent, started = [], 0, False
     while True:
         if _busy.locked():
+            return None
+        if deadline and not started and time.time() > deadline:
             return None
         data, _ = stream.read(CHUNK)
         level = float(np.sqrt(np.mean(data.astype(np.float32) ** 2)))
@@ -93,6 +132,34 @@ def _record_phrase(stream, threshold, max_frames=100):
     if len(frames) < 5:
         return None
     return np.concatenate(frames).tobytes()
+
+
+def _flush(stream):
+    """Throw away audio captured while the app itself was speaking."""
+    try:
+        n = stream.read_available
+        if n:
+            stream.read(n)
+    except Exception:
+        pass
+
+
+def _listen_question(stream, threshold, rec):
+    """After "Mm-hmm?": wait a few seconds for the actual question. None = nothing asked."""
+    deadline = time.time() + QUESTION_SECONDS
+    while time.time() < deadline:
+        raw = _record_phrase(stream, threshold, deadline=deadline)
+        if raw is None:
+            continue
+        try:
+            guesses = _transcripts(rec, sr.AudioData(raw, RATE, 2))
+        except Exception as e:
+            log("speech recognition error:", e)
+            continue
+        if guesses and spoken_request(guesses[0]):
+            log("question:", guesses[0])
+            return guesses[0]
+    return None
 
 
 def _listen_followup(stream, threshold, rec):
@@ -162,7 +229,26 @@ def _loop():
                     log("heard:", guesses[0])
                     if any(heard_wake_word(g) for g in guesses):
                         log("wake word!")
-                        result = handle(guesses[0])
+                        import auth
+                        if not auth.current():
+                            log("nobody is signed in: showing the sign-in screen")
+                            if checker.ui_pop:
+                                checker.ui_pop()
+                            continue
+                        if len(spoken_request(guesses[0]).split()) >= 2:
+                            # Name and question in one breath: "Hello Hermes, is this text safe?"
+                            result = handle(guesses[0])
+                        else:
+                            # Just the name: appear, say "Mm-hmm?", then wait for the question.
+                            appear()
+                            voice.ack()
+                            _flush(stream)
+                            question = _listen_question(stream, threshold, rec)
+                            if not question:
+                                log("no question heard, going back to sleep")
+                                checker.publish("idle")
+                                break
+                            result = handle(question, woke=True)
                         # Conversational follow-up window (verify yes/no, why, call family).
                         if result is not None:
                             try:
