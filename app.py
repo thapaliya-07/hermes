@@ -278,7 +278,7 @@ def favicon():
 def page(name):
     """Serve an HTML page with the product name filled in."""
     html = (STATIC / name).read_text(encoding="utf-8")
-    return HTMLResponse(html.replace("{{NAME}}", config.APP_NAME),
+    return HTMLResponse(html.replace("{{NAME}}", config.APP_NAME).replace("{{MODE}}", "mac"),
                         headers={"Cache-Control": "no-store"})
 
 

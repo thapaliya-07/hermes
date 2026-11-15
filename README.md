@@ -48,6 +48,34 @@ mentions prizes, bank or card details, SSN, codes, payments or an odd link, Herm
 and if it is suspicious or a scam the window pops up, Hermes says so out loud, and the
 emergency contact gets an iMessage. The wake word and the swipe still work as before.
 
+## iPhone and the web (hosted)
+
+iPhones do not let any app read incoming texts, so the silent guard exists only in the Mac
+app. On an iPhone, Hermes is a web app: open the site in Safari, sign in with the same
+account, swipe, then add a screenshot or paste the message. The verdict appears and is
+spoken. If it is suspicious or a scam and the account has an emergency contact, a
+"Tell <name> about this" button opens Messages with a ready text for the person to send.
+Use Share → Add to Home Screen for an app icon.
+
+`server.py` is that hosted version: accounts, per-browser sign-in (a cookie, stored in
+MongoDB) and `POST /api/check`. It has no Mac-only parts. To run it locally:
+
+```bash
+.venv/bin/python -m uvicorn server:app --port 8001
+```
+
+**Putting it online (free) with a GoDaddy domain**
+
+1. Create a free account at https://render.com and choose New → Blueprint, then pick this
+   GitHub repository. `render.yaml` describes the service.
+2. When asked, paste `GEMINI_API_KEY` and `MONGODB_URI` (the same values as in `.env`).
+3. In MongoDB Atlas → Network Access, allow access from anywhere (`0.0.0.0/0`).
+4. In Render → the service → Settings → Custom Domains, add the domain. Render shows the
+   DNS records to create.
+5. In GoDaddy → the domain → DNS, add those records. HTTPS is set up automatically.
+
+The free plan sleeps after 15 minutes without visitors and takes about a minute to wake.
+
 ## How it works
 
 ```mermaid
@@ -86,6 +114,7 @@ flowchart LR
 | `conversation.py` | Interactive turns: session ID, small history window, intents (check / why / call / verify) |
 | `memory.py` | Scam Memory: normalize senders/domains, MongoDB match, Gemini-assisted pattern notes |
 | `verify.py` | Trusted-contact verification for impersonation (iMessage + optional family phrase) |
+| `server.py` | The hosted web version for iPhone and browsers (no Mac-only parts) |
 | `auth.py` | Accounts: sign-up, password, reset, emergency contact |
 | `watcher.py` | Background guard for new texts from numbers not saved in Contacts |
 | `mac.py` | Reads the latest text (`chat.db`, read-only), latest email, screenshot; iMessage; FaceTime |

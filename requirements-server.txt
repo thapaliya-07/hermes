@@ -1,0 +1,7 @@
+# What the hosted server (server.py) needs. No Mac-only packages.
+fastapi
+uvicorn[standard]
+pymongo
+google-genai
+python-dotenv
+requests

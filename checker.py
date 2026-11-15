@@ -636,10 +636,12 @@ def show_result(r):
 
 
 def run_check(device="mac", question="", text=None, email=None, image_b64=None,
-              image_bytes=None, skip_memory=False, silent=False):
+              image_bytes=None, skip_memory=False, silent=False, user=None, notify=True):
     """Returns the /check response dict. Always includes "verdict" and "speech".
 
     skip_memory: when True, the caller (conversation layer) owns scam-memory matching.
+    user: phone of the account this check belongs to (default: whoever is signed in on
+          this Mac). notify=False: do not iMessage anyone (the hosted server cannot).
     """
     device = (device or "mac").lower()
     if not silent:               # silent: the background guard decides what to show
@@ -728,7 +730,7 @@ def run_check(device="mac", question="", text=None, email=None, image_b64=None,
     if device != "mac" and not silent:
         idle_later(15)  # the Mac flow goes idle itself after it finishes speaking
 
-    doc = dict(r, user=config.USER_PHONE, question=question or "", has_image=bool(image_bytes),
+    doc = dict(r, user=user or config.USER_PHONE, question=question or "", has_image=bool(image_bytes),
                text=(text or "")[:2000], email=(email or "")[:2000],
                created_at=datetime.now(timezone.utc))
     # Don't store nested objects that may confuse older dashboard code paths
@@ -740,7 +742,7 @@ def run_check(device="mac", question="", text=None, email=None, image_b64=None,
 
     def _after():
         _save(doc)
-        if should_tell_family(r):
+        if notify and should_tell_family(r):
             msg = family_message(r)
             if r.get("pattern"):
                 msg += ("\n\n%s noticed a pattern: %s (%s)"

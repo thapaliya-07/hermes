@@ -92,6 +92,22 @@ def _put_user(user):
         raise AuthError("I could not reach the account database. Check the internet and try again.")
 
 
+# On the hosted server many people use the app at once, so "who is signed in" cannot be
+# one file. There, each request carries its own session (see server.py): while a request
+# is being handled, `_web` holds that browser's session and the functions below use it
+# instead of the file on this Mac.
+import contextvars
+_web = contextvars.ContextVar("hermes_web_session", default=None)
+
+
+def user_fields(user):
+    """The part of an account kept in a session: never the password hash."""
+    keep = {k: user.get(k, "") for k in ("name", "first_name", "last_name", "phone", "dob",
+                                         "contact_name", "contact_phone")}
+    keep["consent"] = user.get("consent") or {}
+    return keep
+
+
 # Who is signed in on this Mac. A copy of their details is kept here so the background
 # guard keeps working (and knows the emergency contact) even with no internet.
 _session = None
@@ -99,6 +115,9 @@ _session = None
 
 def _read_session():
     global _session
+    web = _web.get()
+    if web is not None:
+        return {"user": web.get("user"), "seen": True}
     if _session is None:
         try:
             _session = json.loads(SESSION.read_text(encoding="utf-8"))
@@ -108,13 +127,14 @@ def _read_session():
 
 
 def _sign_in(user):
-    """Remember `user` as signed in on this Mac (None signs out)."""
+    """Remember `user` as signed in (None signs out): for this browser on the hosted
+    server, otherwise on this Mac."""
     global _session
-    keep = None
-    if user:
-        keep = {k: user.get(k, "") for k in ("name", "first_name", "last_name", "phone", "dob",
-                                            "contact_name", "contact_phone")}
-        keep["consent"] = user.get("consent") or {}
+    keep = user_fields(user) if user else None
+    web = _web.get()
+    if web is not None:
+        web["user"], web["changed"] = keep, True
+        return
     _session = {"user": keep, "seen": bool(user) or _read_session().get("seen", False)}
     _write(SESSION, _session)
     apply_to_config()
@@ -389,6 +409,12 @@ def status():
     return {"signed_in": bool(user), "user": _public(user) if user else None,
             "consent_required": bool(user and not _consent_ok(user)),
             "has_accounts": bool(_read_session().get("seen"))}
+
+
+def get_account(phone):
+    """Session fields for one account, or None (used by the hosted server)."""
+    user = _get_user(phone)
+    return user_fields(user) if user else None
 
 
 def apply_to_config():
