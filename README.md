@@ -40,8 +40,9 @@ Mac. Only "who is signed in on this Mac" is kept locally (`data/session.json`, n
 committed). Every saved check is tagged with its user, and the dashboard shows only that
 user's checks.
 
-**Then nobody has to call Hermes.** While signed in, `watcher.py` reads every new incoming
-text. Senders saved in Contacts are left alone. For any other number, ordinary chat is ignored
+**Then nobody has to call Hermes.** While signed in and after consent, `watcher.py` checks
+who sent each new incoming text against Contacts before fetching any content. Messages from
+saved contacts are never read, and if Contacts cannot be read the guard pauses. For any other number, ordinary chat is ignored
 silently, and that number stays watched until it is saved in Contacts. When a message
 mentions prizes, bank or card details, SSN, codes, payments or an odd link, Hermes checks it,
 and if it is suspicious or a scam the window pops up, Hermes says so out loud, and the

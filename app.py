@@ -26,6 +26,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from pymongo.errors import PyMongoError
 
 import auth
 import checker
@@ -130,7 +131,15 @@ _AUTH_STEPS = {
 @app.get("/api/auth/state")
 def auth_state(request: Request):
     _local_only(request)
-    return auth.status()
+    try:
+        return auth.status()
+    except auth.AuthError as e:
+        return {"signed_in": False, "user": None, "has_accounts": False,
+                "storage_error": str(e)}
+    except PyMongoError as e:
+        log("account database request failed:", type(e).__name__)
+        return {"signed_in": False, "user": None, "has_accounts": False,
+                "storage_error": "Hermes could not reach MongoDB. Check your connection and try again."}
 
 
 @app.post("/api/auth/{step}")
@@ -142,9 +151,13 @@ def auth_step(step: str, req: AuthRequest, request: Request):
         raise HTTPException(404, "Unknown step.")
     try:
         out = _AUTH_STEPS[step](req)
+        state = auth.status()
     except auth.AuthError as e:
         return {"ok": False, "error": str(e)}
-    return dict(out or {}, ok=True, state=auth.status())
+    except PyMongoError as e:
+        log("account database request failed:", type(e).__name__)
+        return {"ok": False, "error": "Hermes could not reach MongoDB. Check your connection and try again."}
+    return dict(out or {}, ok=True, state=state)
 
 
 @app.post("/ask")
