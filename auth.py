@@ -1,9 +1,11 @@
-"""Accounts: sign up with a phone number and date of birth, prove the phone with a
-one-time code, set a password, sign in, reset a forgotten password.
+"""Accounts: sign up with a phone number and date of birth, set a password, sign in,
+reset a forgotten password (proved with the date of birth). No code is sent to the phone.
 
-Everything is stored on this Mac only, in data/accounts.json (never committed).
-Passwords and codes are stored as salted hashes, never in plain text.
-The code is delivered as an iMessage from this Mac, so it costs nothing."""
+Each account (name, phone, date of birth, password hash, emergency contact) is one
+document in the MongoDB "users" collection, so nothing about a person is hardcoded in
+.env and the same account works from any Mac. Only "who is signed in on this Mac" is
+kept locally, in data/session.json (never committed). Without MONGODB_URI the accounts
+fall back to a local file. Passwords are stored as salted hashes."""
 import hashlib
 import hmac
 import json
@@ -21,11 +23,9 @@ from mac import log
 from pathlib import Path
 
 DATA = Path(os.getenv("HERMES_DATA") or config.ROOT / "data")   # HERMES_DATA: tests only
-FILE = DATA / "accounts.json"
+FILE = DATA / "accounts.json"        # used only when there is no MONGODB_URI
+SESSION = DATA / "session.json"
 
-CODE_MINUTES = 10        # how long a code stays valid
-RESEND_SECONDS = 30      # wait this long before another code can be sent
-CODE_TRIES = 5           # wrong codes allowed before a new one is needed
 LOGIN_TRIES = 5          # wrong passwords allowed before a pause
 LOGIN_PAUSE = 60         # seconds
 MIN_PASSWORD = 8
@@ -42,19 +42,77 @@ class AuthError(Exception):
 
 # ---------- storage ----------
 
-def _load():
+def _users():
+    """The MongoDB "users" collection, or None when MONGODB_URI is not set."""
+    import checker
+    col = checker.checks_collection()
+    return None if col is None else col.database["users"]
+
+
+def _local():
     try:
         return json.loads(FILE.read_text(encoding="utf-8"))
     except Exception:
-        return {"users": {}, "signed_in": ""}
+        return {"users": {}}
 
 
-def _store(state):
+def _write(path, obj):
     DATA.mkdir(exist_ok=True)
-    tmp = FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(state, indent=1), encoding="utf-8")
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(obj, indent=1), encoding="utf-8")
     os.chmod(tmp, 0o600)                 # readable by this Mac user only
-    os.replace(tmp, FILE)
+    os.replace(tmp, path)
+
+
+def _get_user(phone):
+    """The account for this phone, or None."""
+    col = _users()
+    if col is None:
+        return _local()["users"].get(phone)
+    try:
+        return col.find_one({"_id": phone}, {"_id": 0})
+    except Exception as e:
+        log("account database unreachable:", str(e)[:120])
+        raise AuthError("I could not reach the account database. Check the internet and try again.")
+
+
+def _put_user(user):
+    col = _users()
+    if col is None:
+        state = _local()
+        state["users"][user["phone"]] = user
+        return _write(FILE, state)
+    try:
+        col.replace_one({"_id": user["phone"]}, dict(user, _id=user["phone"]), upsert=True)
+    except Exception as e:
+        log("account database unreachable:", str(e)[:120])
+        raise AuthError("I could not reach the account database. Check the internet and try again.")
+
+
+# Who is signed in on this Mac. A copy of their details is kept here so the background
+# guard keeps working (and knows the emergency contact) even with no internet.
+_session = None
+
+
+def _read_session():
+    global _session
+    if _session is None:
+        try:
+            _session = json.loads(SESSION.read_text(encoding="utf-8"))
+        except Exception:
+            _session = {"user": None, "seen": False}
+    return _session
+
+
+def _sign_in(user):
+    """Remember `user` as signed in on this Mac (None signs out)."""
+    global _session
+    keep = None
+    if user:
+        keep = {k: user.get(k, "") for k in ("name", "phone", "dob", "contact_name", "contact_phone")}
+    _session = {"user": keep, "seen": bool(user) or _read_session().get("seen", False)}
+    _write(SESSION, _session)
+    apply_to_config()
 
 
 # ---------- small helpers ----------
@@ -114,26 +172,15 @@ def _public(user):
             "contact_masked": mask(user["contact_phone"]) if user.get("contact_phone") else ""}
 
 
-# ---------- one-time codes ----------
+# ---------- starting sign-up or a password reset ----------
+# There is no code sent to the phone. Each step hands back a short-lived ticket that the
+# next step (choosing the password) must present.
 
-def _send_code(phone, entry):
-    code = "%06d" % secrets.randbelow(1000000)
-    salt = secrets.token_hex(16)
-    entry.update(code_salt=salt, code_hash=_hash(code, salt), tries=0,
-                 expires=time.time() + CODE_MINUTES * 60, sent_at=time.time(),
-                 verified=False, ticket="")
-    if config.AUTH_DEV_CODES:
-        log("AUTH_DEV_CODES is on. Code for %s: %s" % (mask(phone), code))
-        return
-    msg = ("%s code: %s. It is good for %d minutes. %s will never ask you to share it."
-           % (config.APP_NAME, code, CODE_MINUTES, config.APP_NAME))
-    if not mac.send_imessage(phone, msg):
-        raise AuthError("I could not send the code. Check that Messages is signed in on this Mac.")
-
-
-def _code_reply(phone, entry):
-    return {"phone": phone, "phone_masked": mask(phone), "resend_in": RESEND_SECONDS,
-            "needs_contact": entry.get("needs_contact", False), "purpose": entry["purpose"]}
+def _ticket(phone, entry):
+    entry.update(verified=True, ticket=secrets.token_urlsafe(24), ticket_until=time.time() + 15 * 60)
+    _pending[phone] = entry
+    return {"phone": phone, "ticket": entry["ticket"], "purpose": entry["purpose"],
+            "needs_contact": entry.get("needs_contact", False)}
 
 
 def start_signup(name, phone, dob):
@@ -143,57 +190,26 @@ def start_signup(name, phone, dob):
     phone = normalize_phone(phone)
     must = needs_contact(dob)            # also checks the date
     with _lock:
-        if phone in _load()["users"]:
+        if _get_user(phone):
             raise AuthError("This number already has an account. Please sign in.")
-        entry = {"purpose": "signup", "name": name, "dob": dob.strip(), "needs_contact": must}
-        _send_code(phone, entry)
-        _pending[phone] = entry
-        return _code_reply(phone, entry)
+        return _ticket(phone, {"purpose": "signup", "name": name, "dob": dob.strip(),
+                               "needs_contact": must})
 
 
-def start_reset(phone):
+def start_reset(phone, dob):
+    """Forgot password: the date of birth on the account is the proof of identity."""
     phone = normalize_phone(phone)
+    age_on(dob)
     with _lock:
-        if phone not in _load()["users"]:
-            raise AuthError("I don't know this number yet. Please create an account.")
-        entry = {"purpose": "reset"}
-        _send_code(phone, entry)
-        _pending[phone] = entry
-        return _code_reply(phone, entry)
-
-
-def resend(phone):
-    phone = normalize_phone(phone)
-    with _lock:
-        entry = _pending.get(phone)
-        if not entry:
-            raise AuthError("Please start again.")
-        wait = RESEND_SECONDS - (time.time() - entry.get("sent_at", 0))
-        if wait > 0:
-            raise AuthError("Please wait %d seconds, then ask for a new code." % (int(wait) + 1))
-        _send_code(phone, entry)
-        return _code_reply(phone, entry)
-
-
-def verify_code(phone, code):
-    """Returns a ticket that proves this phone was verified, for the next step."""
-    phone = normalize_phone(phone)
-    code = re.sub(r"\D", "", code or "")
-    with _lock:
-        entry = _pending.get(phone)
-        if not entry or not entry.get("code_hash"):
-            raise AuthError("Please start again.")
-        if time.time() > entry["expires"]:
-            raise AuthError("That code has expired. Ask for a new one.")
-        if entry["tries"] >= CODE_TRIES:
-            raise AuthError("Too many tries. Ask for a new code.")
-        entry["tries"] += 1
-        if not hmac.compare_digest(_hash(code, entry["code_salt"]), entry["code_hash"]):
-            raise AuthError("That code is not right. Please check it and try again.")
-        entry.update(verified=True, code_hash="", ticket=secrets.token_urlsafe(24),
-                     ticket_until=time.time() + 15 * 60)
-        return {"ticket": entry["ticket"], "purpose": entry["purpose"],
-                "needs_contact": entry.get("needs_contact", False)}
+        count, last = _fails.get(phone, (0, 0))
+        if count >= LOGIN_TRIES and time.time() - last < LOGIN_PAUSE:
+            raise AuthError("Too many tries. Please wait a minute.")
+        user = _get_user(phone)
+        # Same message for "no account" and "wrong date", so nobody can probe numbers.
+        if not user or not hmac.compare_digest(user["dob"], dob.strip()):
+            _fails[phone] = ((count if time.time() - last < LOGIN_PAUSE else 0) + 1, time.time())
+            raise AuthError("That phone number and date of birth do not match an account.")
+        return _ticket(phone, {"purpose": "reset"})
 
 
 def _ticketed(phone, ticket, purpose):
@@ -201,7 +217,7 @@ def _ticketed(phone, ticket, purpose):
     if (not entry or entry["purpose"] != purpose or not entry.get("verified")
             or not ticket or not hmac.compare_digest(ticket, entry.get("ticket", ""))
             or time.time() > entry.get("ticket_until", 0)):
-        raise AuthError("Please verify your phone again.")
+        raise AuthError("Please start again.")
     return entry
 
 
@@ -228,16 +244,13 @@ def finish_signup(phone, ticket, password, contact_name="", contact_phone=""):
         _check_password(password)
         cname, cphone = _contact(phone, contact_name, contact_phone, entry["needs_contact"])
         salt = secrets.token_hex(16)
-        state = _load()
-        state["users"][phone] = {
-            "name": entry["name"], "phone": phone, "dob": entry["dob"],
-            "salt": salt, "password": _hash(password, salt),
-            "contact_name": cname, "contact_phone": cphone, "created": int(time.time())}
-        state["signed_in"] = phone
-        _store(state)
+        user = {"name": entry["name"], "phone": phone, "dob": entry["dob"],
+                "salt": salt, "password": _hash(password, salt),
+                "contact_name": cname, "contact_phone": cphone, "created": int(time.time())}
+        _put_user(user)
         _pending.pop(phone, None)
-    apply_to_config()
-    return _public(state["users"][phone])
+        _sign_in(user)
+    return _public(user)
 
 
 def reset_password(phone, ticket, password):
@@ -245,15 +258,15 @@ def reset_password(phone, ticket, password):
     with _lock:
         _ticketed(phone, ticket, "reset")
         _check_password(password)
-        state = _load()
-        user = state["users"][phone]
+        user = _get_user(phone)
+        if not user:
+            raise AuthError("I don't know this number yet. Please create an account.")
         user["salt"] = secrets.token_hex(16)
         user["password"] = _hash(password, user["salt"])
-        state["signed_in"] = phone
-        _store(state)
+        _put_user(user)
         _pending.pop(phone, None)
         _fails.pop(phone, None)
-    apply_to_config()
+        _sign_in(user)
     return _public(user)
 
 
@@ -263,65 +276,74 @@ def login(phone, password):
         count, last = _fails.get(phone, (0, 0))
         if count >= LOGIN_TRIES and time.time() - last < LOGIN_PAUSE:
             raise AuthError("Too many tries. Please wait a minute, or tap Forgot password.")
-        state = _load()
-        user = state["users"].get(phone)
+        user = _get_user(phone)
         # Same message for "no account" and "wrong password", so nobody can probe numbers.
         if not user or not hmac.compare_digest(_hash(password or "", user["salt"]), user["password"]):
             _fails[phone] = ((count if time.time() - last < LOGIN_PAUSE else 0) + 1, time.time())
             raise AuthError("That phone number or password is not right.")
         _fails.pop(phone, None)
-        state["signed_in"] = phone
-        _store(state)
-    apply_to_config()
+        _sign_in(user)
     return _public(user)
 
 
 def logout():
     with _lock:
-        state = _load()
-        state["signed_in"] = ""
-        _store(state)
-    apply_to_config()
+        _sign_in(None)
 
 
 def set_contact(contact_name, contact_phone):
     """Change the emergency contact of the signed-in person."""
     with _lock:
-        state = _load()
-        user = state["users"].get(state.get("signed_in") or "")
+        me = current()
+        user = _get_user(me["phone"]) if me else None
         if not user:
             raise AuthError("Please sign in first.")
         user["contact_name"], user["contact_phone"] = _contact(
             user["phone"], contact_name, contact_phone, needs_contact(user["dob"]))
-        _store(state)
-    apply_to_config()
+        _put_user(user)
+        _sign_in(user)
     return _public(user)
+
+
+def migrate_local():
+    """One-time move: accounts created before the database was used are copied from
+    the local file into MongoDB, and whoever was signed in stays signed in."""
+    if _users() is None or not FILE.exists():
+        return
+    try:
+        old = json.loads(FILE.read_text(encoding="utf-8"))
+        moved = 0
+        for phone, user in (old.get("users") or {}).items():
+            if not _get_user(phone):
+                _put_user(user)
+                moved += 1
+        who = (old.get("users") or {}).get(old.get("signed_in") or "")
+        if who and not current():
+            _sign_in(who)
+        os.replace(FILE, FILE.with_suffix(".json.migrated"))
+        log("moved %d local account(s) into the database" % moved)
+    except Exception as e:
+        log("could not move local accounts into the database yet:", str(e)[:120])
 
 
 # ---------- who is signed in ----------
 
 def current():
-    """The signed-in account, or None."""
-    state = _load()
-    return state["users"].get(state.get("signed_in") or "")
+    """The person signed in on this Mac (name, phone, dob, emergency contact), or None."""
+    return _read_session().get("user")
 
 
 def status():
     user = current()
     return {"signed_in": bool(user), "user": _public(user) if user else None,
-            "has_accounts": bool(_load()["users"])}
+            "has_accounts": bool(_read_session().get("seen"))}
 
 
 def apply_to_config():
     """Point the rest of the app at the signed-in person: their name, and their
     emergency contact as the one who gets alerts. No contact means no alert is sent."""
-    user = current()
-    if user:
-        config.GRANDMA_NAME = user["name"]
-        config.FAMILY_PHONE = user.get("contact_phone", "")
-        config.FAMILY_NAME = user.get("contact_name") or "there"
-    else:
-        config.GRANDMA_NAME, config.FAMILY_PHONE, config.FAMILY_NAME = _ENV_DEFAULTS
-
-
-_ENV_DEFAULTS = (config.GRANDMA_NAME, config.FAMILY_PHONE, config.FAMILY_NAME)
+    user = current() or {}
+    config.GRANDMA_NAME = user.get("name", "")
+    config.FAMILY_PHONE = user.get("contact_phone", "")
+    config.FAMILY_NAME = user.get("contact_name", "") or "there"
+    config.USER_PHONE = user.get("phone", "")

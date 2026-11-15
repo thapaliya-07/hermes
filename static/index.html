@@ -33,7 +33,9 @@
     --soft: cubic-bezier(.4, 0, .2, 1);
     --display: "Cinzel", "Times New Roman", serif;
     --sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    --cursor: url("/static/cursors/trojan.png") 4 4, auto;
+    /* Odysseus' bronze dagger: a real system cursor (no script), tip is the hot spot */
+    --cursor: url("/static/cursors/dagger.png") 2 2, auto;
+    --cursor-sharp: -webkit-image-set(url("/static/cursors/dagger.png") 1x, url("/static/cursors/dagger@2x.png") 2x) 2 2, auto;
   }
 
   body[data-state="idle"]       { --tone: #1a2c44; --energy: .26; }
@@ -53,6 +55,12 @@
   body[data-scene="watch"]    { --tone: #8a6430; --energy: .7; }
 
   * { box-sizing: border-box; cursor: var(--cursor); }
+  /* While the pointer is outside the window the page asks for the plain arrow, so that
+     coming back is a real change and the dagger is drawn again (see the script). */
+  html.cur-off, html.cur-off * { cursor: default !important; }
+  @supports (cursor: -webkit-image-set(url("x.png") 1x) 0 0, auto) {
+    * { cursor: var(--cursor-sharp); }      /* crisp on Retina screens */
+  }
   html, body { height: 100%; margin: 0; }
   body {
     font-family: var(--sans);
@@ -389,27 +397,6 @@
     .w { opacity: 1; transform: none; }
   }
 
-  /* ===== Odyssey cursor: a small ship that follows the pointer ===== */
-  html.oc-on, html.oc-on * { cursor: none !important; }
-  .oc-dot, .oc-ship { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 9999;
-                      opacity: 0; transition: opacity .3s var(--soft); will-change: transform; }
-  html.oc-live .oc-dot, html.oc-live .oc-ship { opacity: 1; }
-  .oc-dot { width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
-            background: var(--navy); box-shadow: 0 0 0 2px var(--parchment); }
-  .oc-dot::after { content: ""; position: absolute; inset: -9px; border-radius: 50%;
-                   border: 1.500px solid var(--navy); opacity: 0; transform: scale(.4);
-                   transition: opacity .35s var(--soft), transform .45s var(--ease); }
-  html.oc-hover .oc-dot::after { opacity: .55; transform: scale(1); }
-  html.oc-down .oc-dot::after { opacity: .9; transform: scale(.72); }
-  .oc-ship { width: 34px; height: 34px; margin: 6px 0 0 8px; color: var(--navy); }
-  .oc-ship svg { width: 100%; height: 100%; display: block; overflow: visible;
-                 transform-origin: 50% 80%; transition: transform .45s var(--ease); }
-  .oc-ship .sail { fill: var(--parchment); stroke: currentColor; transition: fill .5s var(--soft); }
-  html.oc-hover .oc-ship svg { transform: scale(1.22) translateY(-2px); }
-  html.oc-hover .oc-ship .sail { fill: color-mix(in srgb, var(--tone) 55%, var(--parchment)); }
-  html.oc-down .oc-ship svg { transform: scale(.9) translateY(2px); }
-  .oc-ship .wake { stroke-dasharray: 3 4; animation: oc-wake 1.2s linear infinite; opacity: .5; }
-  @keyframes oc-wake { to { stroke-dashoffset: -14; } }
 
   /* ===== smoother swipe ===== */
   .swipe { --p: 0; transition: opacity .35s, box-shadow .45s var(--ease), background .45s var(--soft), transform .45s var(--ease); }
@@ -436,7 +423,7 @@
   @keyframes sweep { 0% { opacity: .9; transform: translateX(-100%); } 100% { opacity: 0; transform: translateX(100%); } }
   .swipe.success .thumb { scale: 1.1; }
   @media (prefers-reduced-motion: reduce) {
-    .swipe-fill, .swipe.rest:hover .thumb, .oc-ship .wake { animation: none !important; }
+    .swipe-fill, .swipe.rest:hover .thumb { animation: none !important; }
   }
 
   /* ===== Account screens (same parchment + navy as the rest) ===== */
@@ -467,7 +454,6 @@
     transition: border-color .25s, box-shadow .25s, background .25s;
   }
   .auth input:focus { border-color: var(--navy-soft); background: #fff; box-shadow: 0 0 0 4px rgba(26,44,68,.1); }
-  .auth input.code { text-align: center; font-size: 26px; letter-spacing: .42em; padding-left: .42em; font-variant-numeric: tabular-nums; }
   .auth .btn {
     width: 100%; height: 50px; margin-top: 18px; border: 0; border-radius: 25px;
     background: var(--navy); color: var(--parchment); font: 600 16px var(--sans); letter-spacing: .01em;
@@ -679,14 +665,14 @@
 
     <form data-v="signup" hidden>
       <h2>Begin the voyage</h2>
-      <p class="sub">Three details, then a code to your phone.</p>
+      <p class="sub">Three details, then choose a password.</p>
       <label for="suName">First name</label>
       <input id="suName" type="text" autocomplete="given-name" maxlength="40" required>
       <label for="suPhone">Phone number</label>
       <input id="suPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(214) 555-0123" required>
       <label for="suDob">Date of birth</label>
       <input id="suDob" type="date" required>
-      <button class="btn" type="submit">Send my code</button>
+      <button class="btn" type="submit">Continue</button>
       <div class="links center">
         <button class="link" type="button" data-go="signin">I already have an account</button>
       </div>
@@ -694,24 +680,14 @@
 
     <form data-v="forgot" hidden>
       <h2>Forgot password</h2>
-      <p class="sub">Enter your phone number. A code will prove it is you.</p>
+      <p class="sub">Enter your phone number and date of birth to choose a new password.</p>
       <label for="fgPhone">Phone number</label>
       <input id="fgPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(214) 555-0123" required>
-      <button class="btn" type="submit">Send my code</button>
+      <label for="fgDob">Date of birth</label>
+      <input id="fgDob" type="date" required>
+      <button class="btn" type="submit">Continue</button>
       <div class="links center">
         <button class="link" type="button" data-go="signin">Back to sign in</button>
-      </div>
-    </form>
-
-    <form data-v="code" hidden>
-      <h2>Check your phone</h2>
-      <p class="sub">Enter the 6-digit code sent to <span id="codeTo"></span>.</p>
-      <input id="codeIn" class="code" type="text" inputmode="numeric" autocomplete="one-time-code"
-             maxlength="6" pattern="[0-9]{6}" aria-label="6-digit code" required>
-      <button class="btn" type="submit">Verify</button>
-      <div class="links">
-        <button class="link" type="button" id="resendBtn" disabled>Send a new code</button>
-        <button class="link" type="button" id="codeBack">Different number</button>
       </div>
     </form>
 
@@ -758,17 +734,6 @@
   </div>
 </div>
 
-<div class="oc-ship" id="ocShip" aria-hidden="true">
-  <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path class="sail" d="M13 11 Q24 15 35 11 L33 26 Q24 29 15 26 Z"/>
-    <path d="M24 7 V31"/>
-    <path d="M6 31 Q24 41 42 31 L38 37 Q24 43 10 37 Z" fill="currentColor"/>
-    <path d="M6 31 Q2 25 7 21"/>
-    <path d="M42 31 Q47 25 43 19"/>
-    <path class="wake" d="M2 45 H46"/>
-  </svg>
-</div>
-<div class="oc-dot" id="ocDot" aria-hidden="true"></div>
 <script>
   const NAME = "{{NAME}}";
   const $ = id => document.getElementById(id);
@@ -1135,11 +1100,11 @@
   }
 
 
-  // ===== Accounts: sign in, create account, one-time code, password, emergency contact =====
+  // ===== Accounts: sign in, create account, password, emergency contact =====
   (function () {
     const A = $("auth"), errEl = $("authErr");
     const flow = { phone: "", ticket: "", purpose: "", needs: false, password: "" };
-    let tick = null, me = null;
+    let me = null;
     const post = (step, body) => fetch("/api/auth/" + step, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {})
     }).then(r => r.json()).catch(() => ({ ok: false, error: "I could not reach {{NAME}}. Please try again." }));
@@ -1168,21 +1133,18 @@
       if (!r.ok) err(r.error || "Something went wrong. Please try again.");
       return r.ok ? r : null;
     }
-    function countdown(seconds) {
-      const b = $("resendBtn"); let left = seconds; clearInterval(tick);
-      const paint = () => { b.disabled = left > 0; b.textContent = left > 0 ? "New code in " + left + "s" : "Send a new code"; };
-      paint(); tick = setInterval(() => { left -= 1; paint(); if (left <= 0) clearInterval(tick); }, 1000);
-    }
-    function toCode(r) {
-      flow.phone = r.phone; flow.purpose = r.purpose; flow.needs = !!r.needs_contact;
-      $("codeTo").textContent = r.phone_masked; $("codeIn").value = "";
-      view("code"); countdown(r.resend_in || 30);
+    function toPassword(r) {
+      flow.phone = r.phone; flow.ticket = r.ticket; flow.purpose = r.purpose; flow.needs = !!r.needs_contact;
+      const reset = flow.purpose === "reset";
+      $("pwTitle").textContent = reset ? "Choose a new password" : "Create a password";
+      $("pwBtn").textContent = reset ? "Save and sign in" : "Continue";
+      $("pw1").value = $("pw2").value = ""; view("password");
     }
     const form = name => A.querySelector('form[data-v="' + name + '"]');
     const on = (name, fn) => form(name).addEventListener("submit", e => { e.preventDefault(); fn(form(name)); });
 
     A.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => view(b.dataset.go)));
-    $("suDob").max = new Date().toISOString().slice(0, 10);
+    $("suDob").max = $("fgDob").max = new Date().toISOString().slice(0, 10);
 
     on("signin", async f => {
       const r = await run(f, "login", { phone: $("siPhone").value, password: $("siPass").value });
@@ -1190,28 +1152,12 @@
     });
     on("signup", async f => {
       const r = await run(f, "signup", { name: $("suName").value, phone: $("suPhone").value, dob: $("suDob").value });
-      if (r) toCode(r);
+      if (r) toPassword(r);
     });
     on("forgot", async f => {
-      const r = await run(f, "forgot", { phone: $("fgPhone").value });
-      if (r) toCode(r);
+      const r = await run(f, "forgot", { phone: $("fgPhone").value, dob: $("fgDob").value });
+      if (r) toPassword(r);
     });
-    on("code", async f => {
-      const r = await run(f, "verify", { phone: flow.phone, code: $("codeIn").value });
-      if (!r) return;
-      flow.ticket = r.ticket; clearInterval(tick);
-      const reset = flow.purpose === "reset";
-      $("pwTitle").textContent = reset ? "Choose a new password" : "Create a password";
-      $("pwBtn").textContent = reset ? "Save and sign in" : "Continue";
-      $("pw1").value = $("pw2").value = ""; view("password");
-    });
-    $("codeIn").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); });
-    $("resendBtn").addEventListener("click", async () => {
-      $("resendBtn").disabled = true;
-      const r = await post("resend", { phone: flow.phone });
-      if (r.ok) { err(""); countdown(r.resend_in || 30); } else { err(r.error); $("resendBtn").disabled = false; }
-    });
-    $("codeBack").addEventListener("click", () => view(flow.purpose === "reset" ? "forgot" : "signup"));
     on("password", async f => {
       const a = $("pw1").value, b = $("pw2").value;
       if (a !== b) return err("The two passwords do not match.");
@@ -1262,36 +1208,24 @@
       .catch(() => {});
   })();
 
-  // ===== Odyssey cursor: a precise dot, with a small ship sailing after it =====
+  // ===== Keep the dagger cursor after the pointer leaves the window and returns =====
+  // The app window remembers the last cursor it set and skips setting the same one again,
+  // so after macOS swaps in its own arrow outside the window the dagger never came back.
+  // Switching to the arrow while outside makes the return a change that is always applied.
   (function () {
-    if (!window.matchMedia("(pointer: fine)").matches) return;
-    const root = document.documentElement, dot = $("ocDot"), ship = $("ocShip");
-    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let mx = -100, my = -100, sx = -100, sy = -100, tilt = 0, raf = 0;
-    root.classList.add("oc-on");
-    function frame() {
-      const k = calm ? 1 : 0.16;
-      const dx = mx - sx, dy = my - sy;
-      sx += dx * k; sy += dy * k;
-      tilt += ((Math.max(-14, Math.min(14, dx * 0.5))) - tilt) * 0.12;      // lean into the turn
-      const bob = calm ? 0 : Math.sin(performance.now() / 520) * 1.500;       // gentle swell
-      ship.style.transform = "translate3d(" + sx + "px," + (sy + bob) + "px,0) rotate(" + tilt.toFixed(2) + "deg)";
-      raf = requestAnimationFrame(frame);
-    }
-    window.addEventListener("pointermove", e => {
-      mx = e.clientX; my = e.clientY;
-      dot.style.transform = "translate3d(" + mx + "px," + my + "px,0)";
-      if (!root.classList.contains("oc-live")) { sx = mx; sy = my; root.classList.add("oc-live"); }
-      const hot = e.target.closest && e.target.closest(".swipe, .thumb, a, button, input, [role=button], [tabindex]");
-      root.classList.toggle("oc-hover", !!hot);
-    }, { passive: true });
-    window.addEventListener("pointerdown", () => root.classList.add("oc-down"));
-    window.addEventListener("pointerup", () => root.classList.remove("oc-down"));
-    document.addEventListener("mouseleave", () => root.classList.remove("oc-live", "oc-hover"));
-    document.addEventListener("visibilitychange", () => {
-      cancelAnimationFrame(raf); if (!document.hidden) raf = requestAnimationFrame(frame);
-    });
-    raf = requestAnimationFrame(frame);
+    const root = document.documentElement;
+    let away = false;
+    const leave = () => { away = true; root.classList.add("cur-off"); };
+    const back = () => {
+      if (!away) return;
+      away = false;
+      requestAnimationFrame(() => root.classList.remove("cur-off"));
+    };
+    document.addEventListener("mouseleave", leave);
+    window.addEventListener("blur", leave);
+    document.addEventListener("mouseenter", back);
+    window.addEventListener("mousemove", back, { passive: true });
+    window.addEventListener("focus", () => { away = true; back(); });
   })();
 </script>
 </body>

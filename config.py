@@ -22,11 +22,12 @@ def _get(name, default=""):
 GEMINI_API_KEY = _get("GEMINI_API_KEY")
 GEMINI_MODEL = _get("GEMINI_MODEL", "gemini-flash-latest")
 MONGODB_URI = _get("MONGODB_URI")
-FAMILY_PHONE = _get("FAMILY_PHONE")
-if FAMILY_PHONE.isdigit() and len(FAMILY_PHONE) == 10:
-    FAMILY_PHONE = "+1" + FAMILY_PHONE  # bare US number -> +1XXXXXXXXXX
-FAMILY_NAME = _get("FAMILY_NAME", "there")
-GRANDMA_NAME = _get("GRANDMA_NAME", "Grandma")
+# Who is protected and who gets the alerts is NOT set here. It comes from the account
+# of whoever is signed in (see auth.py, stored in the database), filled in at sign-in.
+GRANDMA_NAME = ""      # the signed-in person's first name
+FAMILY_PHONE = ""      # their emergency contact's phone ("" = nobody to alert)
+FAMILY_NAME = "there"  # their emergency contact's first name
+USER_PHONE = ""        # the signed-in person's phone: links saved checks to their account
 
 # Trusted-contact verification (impersonation checks). Optional family phrase for emergencies.
 # TRUSTED_CONTACTS: "Maya:+12145550123,Sam:+12145550199"  (comma-separated Name:phone)
@@ -66,9 +67,6 @@ GEMINI_VOICE = _get("GEMINI_VOICE", "Kore")   # clear/firm. Others: Aoede, Sulaf
 GEMINI_TTS_MODEL = _get("GEMINI_TTS_MODEL", "gemini-3.8-flash-lite-tts")
 FISH_VOICE_ID = _get("FISH_VOICE_ID")  # empty = Fish default voice
 
-# Accounts. AUTH_DEV_CODES=1 prints the one-time code in the terminal instead of
-# sending it by iMessage (for testing only).
-AUTH_DEV_CODES = _get("AUTH_DEV_CODES").lower() in ("1", "true", "yes", "on")
 # Background guard: check new messages from numbers not saved in Contacts. "off" disables it.
 WATCH_MESSAGES = _get("WATCH_MESSAGES", "on").lower() not in ("0", "off", "false", "no")
 

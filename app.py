@@ -99,7 +99,6 @@ class AuthRequest(BaseModel):
     name: str = ""
     phone: str = ""
     dob: str = ""
-    code: str = ""
     ticket: str = ""
     password: str = ""
     contact_name: str = ""
@@ -113,12 +112,10 @@ def _local_only(request):
 
 _AUTH_STEPS = {
     "signup": lambda r: auth.start_signup(r.name, r.phone, r.dob),
-    "resend": lambda r: auth.resend(r.phone),
-    "verify": lambda r: auth.verify_code(r.phone, r.code),
     "finish": lambda r: auth.finish_signup(r.phone, r.ticket, r.password,
                                            r.contact_name, r.contact_phone),
     "login":  lambda r: auth.login(r.phone, r.password),
-    "forgot": lambda r: auth.start_reset(r.phone),
+    "forgot": lambda r: auth.start_reset(r.phone, r.dob),
     "reset":  lambda r: auth.reset_password(r.phone, r.ticket, r.password),
     "contact": lambda r: auth.set_contact(r.contact_name, r.contact_phone),
     "logout": lambda r: auth.logout(),
@@ -133,7 +130,7 @@ def auth_state(request: Request):
 
 @app.post("/api/auth/{step}")
 def auth_step(step: str, req: AuthRequest, request: Request):
-    """Sign-up, one-time code, password, sign-in and reset. Problems the person can
+    """Sign-up, password, sign-in and reset. Problems the person can
     fix come back as {"ok": false, "error": "..."} to show on screen."""
     _local_only(request)
     if step not in _AUTH_STEPS:
@@ -281,15 +278,16 @@ def family():
 def api_checks(limit: int = 50):
     col = checker.checks_collection()
     if col is None:
-        return {"checks": [], "error": "MONGODB_URI not set", "grandma": config.GRANDMA_NAME}
+        return {"checks": [], "error": "MONGODB_URI not set", "grandma": config.GRANDMA_NAME or "Your family member"}
     try:
-        docs = list(col.find({}, {"_id": 0, "text": 0, "email": 0})
+        # each person only sees the checks made under their own account
+        docs = list(col.find({"user": config.USER_PHONE}, {"_id": 0, "text": 0, "email": 0, "user": 0})
                     .sort("created_at", -1).limit(min(limit, 200)))
     except Exception as e:
-        return {"checks": [], "error": str(e), "grandma": config.GRANDMA_NAME}
+        return {"checks": [], "error": str(e), "grandma": config.GRANDMA_NAME or "Your family member"}
     for d in docs:
         d["created_at"] = d["created_at"].isoformat() + "Z"
-    return {"checks": docs, "grandma": config.GRANDMA_NAME}
+    return {"checks": docs, "grandma": config.GRANDMA_NAME or "Your family member"}
 
 
 def main():
@@ -319,6 +317,7 @@ def main():
         sys.exit(1)
     finally:
         probe.close()
+    auth.migrate_local()        # accounts made before the database was used
     auth.apply_to_config()      # alerts go to the signed-in person's emergency contact
     if not auth.current():
         log("nobody is signed in yet. The window opens so you can sign in.")

@@ -30,11 +30,14 @@ trick doesn't work.
 ## Accounts and the background guard
 
 **Sign in first.** On first launch the window opens on a sign-up screen: first name, phone
-number and date of birth, then a 6-digit code sent to that phone (it can be re-sent after 30
-seconds), then a password. *Forgot password* sends a new code. Anyone under 18 or over 50 must
-add an emergency contact; for everyone else it is optional. Accounts are stored on this Mac
-only (`data/accounts.json`, not committed), with passwords and codes kept as salted hashes.
-The code is sent as an iMessage from this Mac, so it is free.
+number and date of birth, then a password. No code is sent to the phone. *Forgot password*
+asks for the phone number and date of birth, then a new password. Anyone under 18 or over
+50 must add an emergency contact; for everyone else it is optional. Each account (name,
+phone, date of birth, emergency contact, password hash) is a document in the MongoDB `users`
+collection, so nothing about a person is set in `.env` and the same account works from any
+Mac. Only "who is signed in on this Mac" is kept locally (`data/session.json`, not
+committed). Every saved check is tagged with its user, and the dashboard shows only that
+user's checks.
 
 **Then nobody has to call Hermes.** While signed in, `watcher.py` reads every new incoming
 text. Senders saved in Contacts are left alone. For any other number, ordinary chat is ignored
@@ -81,7 +84,7 @@ flowchart LR
 | `conversation.py` | Interactive turns: session ID, small history window, intents (check / why / call / verify) |
 | `memory.py` | Scam Memory: normalize senders/domains, MongoDB match, Gemini-assisted pattern notes |
 | `verify.py` | Trusted-contact verification for impersonation (iMessage + optional family phrase) |
-| `auth.py` | Accounts: sign-up, one-time code, password, reset, emergency contact |
+| `auth.py` | Accounts: sign-up, password, reset, emergency contact |
 | `watcher.py` | Background guard for new texts from numbers not saved in Contacts |
 | `mac.py` | Reads the latest text (`chat.db`, read-only), latest email, screenshot; iMessage; FaceTime |
 | `listener.py` | Wake-word listener + short follow-up window after each answer |
@@ -107,9 +110,6 @@ Fill in `.env`:
 |---|---|
 | `GEMINI_API_KEY` | Free key from https://aistudio.google.com/apikey |
 | `MONGODB_URI` | Free M0 cluster at https://cloud.mongodb.com → Connect → Drivers. Allow access from anywhere (`0.0.0.0/0`) under Network Access. |
-| `FAMILY_PHONE` | The family member's iMessage number, e.g. `+12145550123` |
-| `FAMILY_NAME` | Their first name |
-| `GRANDMA_NAME` | Optional, defaults to `Grandma` |
 | `TRUSTED_CONTACTS` | Optional extras: `Maya:+12145550123,Sam:+12145550199` |
 | `VERIFY_PHRASE` | Optional private family phrase for verification replies |
 | `SCAM_MEMORY_DAYS` | How far back pattern matching looks (default `14`) |

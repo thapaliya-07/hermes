@@ -728,7 +728,7 @@ def run_check(device="mac", question="", text=None, email=None, image_b64=None,
     if device != "mac" and not silent:
         idle_later(15)  # the Mac flow goes idle itself after it finishes speaking
 
-    doc = dict(r, question=question or "", has_image=bool(image_bytes),
+    doc = dict(r, user=config.USER_PHONE, question=question or "", has_image=bool(image_bytes),
                text=(text or "")[:2000], email=(email or "")[:2000],
                created_at=datetime.now(timezone.utc))
     # Don't store nested objects that may confuse older dashboard code paths

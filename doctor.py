@@ -15,7 +15,11 @@ print("Screenshot  :", ("OK, %d KB" % (len(s) // 1024)) if s
       else "NOT ALLOWED  -> give this app Screen Recording")
 print("Gemini key  :", "set" if config.GEMINI_API_KEY else "MISSING")
 print("MongoDB     :", "set" if config.MONGODB_URI else "MISSING")
-print("Family phone:", config.FAMILY_PHONE or "MISSING")
+import auth
+auth.apply_to_config()
+me = auth.current()
+print("Signed in   :", ("%s, emergency contact %s" % (me["name"], "set" if me.get("contact_phone") else "not set"))
+      if me else "nobody (open the app and sign in)")
 print("Trusted cts :", ("%d configured" % (len(config.TRUSTED_CONTACTS) + (1 if config.FAMILY_PHONE else 0)))
       if (config.TRUSTED_CONTACTS or config.FAMILY_PHONE) else "none")
 print("Verify phrase:", "set" if config.VERIFY_PHRASE else "optional, not set")

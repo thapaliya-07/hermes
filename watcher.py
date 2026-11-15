@@ -96,7 +96,7 @@ def judge(m):
             log("guard: could not check a message from %s (model unavailable)" % _who(sender))
             return None
         r = _local_verdict(sender)
-        doc = dict(r, question=question, has_image=False, text=text[:2000], email="",
+        doc = dict(r, user=config.USER_PHONE, question=question, has_image=False, text=text[:2000], email="",
                    created_at=checker.datetime.now(checker.timezone.utc))
         threading.Thread(target=checker._save, args=(doc,), daemon=True).start()
         if config.FAMILY_PHONE:
